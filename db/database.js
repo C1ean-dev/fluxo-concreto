@@ -122,7 +122,8 @@ async function query(sql, params = []) {
   }
   const db = getSqliteDb();
   const stmt = db.prepare(sql);
-  return stmt.all(...params);
+  const sqliteParams = params.map(p => typeof p === 'boolean' ? (p ? 1 : 0) : p);
+  return stmt.all(...sqliteParams);
 }
 
 /**
@@ -149,7 +150,8 @@ async function execute(sql, params = []) {
   }
   const db = getSqliteDb();
   const stmt = db.prepare(sql);
-  const result = stmt.run(...params);
+  const sqliteParams = params.map(p => typeof p === 'boolean' ? (p ? 1 : 0) : p);
+  const result = stmt.run(...sqliteParams);
   return {
     changes: result.changes,
     lastInsertRowid: result.lastInsertRowid,

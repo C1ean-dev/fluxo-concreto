@@ -30,6 +30,10 @@
       <a href="banco.html" class="btn" id="btnBanco" target="_blank" title="Abrir gerenciador e editor visual do banco de dados SQLite">Ver Banco (SQLite)</a>
       <button class="btn ghost" id="btnReset">Restaurar exemplo</button>
       <button class="btn primary" id="btnNew">+ Novo lançamento</button>
+      <div id="userProfile" class="user-profile" style="display:none; align-items:center; gap:8px; margin-left:6px; font-size:12px; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+        <span id="userEmail" style="font-weight:600; color:#0284c7;"></span>
+        <button id="btnLogout" class="btn sm ghost" style="padding:2px 8px; font-size:11px;" title="Encerrar sessão">Sair</button>
+      </div>
     </div>
   </header>
   <main id="board" class="board" aria-label="Quadro de relatórios"></main>
@@ -65,5 +69,23 @@
 <script src="js/ai-pipeline.js"></script>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
+<script>
+  // Inicialização do perfil do usuário logado
+  fetch('/api/auth/me').then(r => r.json()).then(data => {
+    if (data.authenticated && data.user) {
+      const profile = document.getElementById('userProfile');
+      const email = document.getElementById('userEmail');
+      if (profile && email) {
+        email.textContent = data.user.email;
+        profile.style.display = 'inline-flex';
+      }
+    }
+  }).catch(() => {});
+
+  document.getElementById('btnLogout')?.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    window.location.href = '/login.html';
+  });
+</script>
 </body>
 </html>

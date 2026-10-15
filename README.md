@@ -47,6 +47,16 @@ O sistema conta com camada ORM com suporte a modo duplo:
   - As tabelas são sincronizadas e migradas automaticamente na inicialização com tipos nativos do PostgreSQL (`JSONB`, `SERIAL`, `DOUBLE PRECISION`).
   - O pool de conexões e transações atômicas utilizam o driver `pg` com suporte a SSL gerenciado.
 
+## Autenticação Corporativa (Magic Link & OTP via Resend)
+
+O sistema possui autenticação corporativa segura e sem senha:
+- **Restrição de Domínio:** Acesso permitido exclusivamente para e-mails institucionais `@falcaobauer.com.br`.
+- **Modo Duplo de Login:** Ao solicitar o acesso, o usuário recebe um e-mail transacional via **Resend** contendo:
+  1. **Código OTP de 6 dígitos** para digitação rápida na tela de login.
+  2. **Magic Link direto** para autenticação com 1 clique.
+- **Sessões Persistentes:** As sessões ativas são mantidas de forma segura no banco de dados (`sessions`) com cookies `HttpOnly` e `SameSite`.
+- **Configuração no Railway:** Adicione a variável `RESEND_API_KEY` no painel do Railway para habilitar o envio dos e-mails em produção.
+
 O servidor adiciona as novas colunas JSON ao banco existente na inicialização,
 sem redefinir os cards ou apagar configurações personalizadas.
 

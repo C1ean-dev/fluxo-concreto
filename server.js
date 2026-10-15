@@ -13,8 +13,9 @@ const path = require('node:path');
 const db = require('./db/database');
 const { Card, CorpoDeProva, Configuracao, Log, syncAllModels } = require('./db/models');
 const { seedDatabase } = require('./db/seed');
+const auth = require('./auth');
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = process.env.PORT !== undefined && process.env.PORT !== '' ? Number(process.env.PORT) : 3000;
 const HOST = process.env.HOST || (process.env.RAILWAY_ENVIRONMENT || process.env.DATABASE_URL || process.env.NODE_ENV === 'production' ? '0.0.0.0' : null);
 const PUBLIC_DIR = __dirname;
 
@@ -86,6 +87,73 @@ const server = http.createServer(async (req, res) => {
       uptime: Math.floor(process.uptime()),
       engine: db.isPostgres ? 'PostgreSQL' : 'SQLite'
     });
+  }
+
+  // ==========================================
+  // ROTAS DE AUTENTICAÇÃO (Resend / OTP / Magic Link)
+  // ==========================================
+
+  // 1. Enviar código OTP e Magic Link
+  if (pathname === '/api/auth/send-code' && method === 'POST') {
+    try {
+      const { email } = await parseBody(req);
+      if (!email) return sendJson(res, 400, { ok: false, error: 'E-mail corporativo não informado.' });
+      const result = await auth.requestLogin(email, reqUrl);
+      return sendJson(res, 200, result);
+    } catch (err) {
+      return sendJson(res, 400, { ok: false, error: err.message });
+    }
+  }
+
+  // 2. Verificar código OTP de 6 dígitos
+  if (pathname === '/api/auth/verify-otp' && method === 'POST') {
+    try {
+      const { email, otp } = await parseBody(req);
+      const result = await auth.verifyOtpCode(email, otp);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Set-Cookie': auth.createSessionCookieHeader(result.sessionId, req),
+        'Access-Control-Allow-Origin': '*'
+      });
+      return res.end(JSON.stringify({ ok: true, user: result.user }));
+    } catch (err) {
+      return sendJson(res, 400, { ok: false, error: err.message });
+    }
+  }
+
+  // 3. Verificar Magic Link
+  if (pathname === '/api/auth/verify-magic' && method === 'GET') {
+    try {
+      const token = reqUrl.searchParams.get('token');
+      const result = await auth.verifyMagicLinkToken(token);
+      res.writeHead(302, {
+        'Location': '/',
+        'Set-Cookie': auth.createSessionCookieHeader(result.sessionId, req)
+      });
+      return res.end();
+    } catch (err) {
+      res.writeHead(302, {
+        'Location': '/login.html?error=expired'
+      });
+      return res.end();
+    }
+  }
+
+  // 4. Obter usuário da sessão atual
+  if (pathname === '/api/auth/me' && method === 'GET') {
+    const user = await auth.getAuthenticatedUser(req);
+    return sendJson(res, 200, { ok: true, authenticated: Boolean(user), user: user || null });
+  }
+
+  // 5. Logout
+  if (pathname === '/api/auth/logout' && method === 'POST') {
+    await auth.logout(req);
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Set-Cookie': auth.createClearSessionCookieHeader(),
+      'Access-Control-Allow-Origin': '*'
+    });
+    return res.end(JSON.stringify({ ok: true }));
   }
 
   // 1. Status do Banco
@@ -546,6 +614,25 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res,404,{ok:false,error:'Rota de API não encontrada. Confira o endereço da requisição e a versão do servidor.'});
   }
   if(pathname.split('/').some(segment => segment.startsWith('.'))){ res.writeHead(403); return res.end('Acesso negado'); }
+
+  // Verificação de autenticação para páginas HTML principais
+  const isAuthEnabled = Boolean(process.env.AUTH_REQUIRED === 'true' || (process.env.RESEND_API_KEY && process.env.NODE_ENV !== 'test'));
+  if (isAuthEnabled && (pathname === '/' || pathname === '/prototipo-fluxo-relatorios.html' || pathname === '/banco.html')) {
+    const user = await auth.getAuthenticatedUser(req);
+    if (!user) {
+      res.writeHead(302, { 'Location': '/login.html' });
+      return res.end();
+    }
+  }
+
+  if (isAuthEnabled && pathname === '/login.html') {
+    const user = await auth.getAuthenticatedUser(req);
+    if (user && !reqUrl.searchParams.get('token')) {
+      res.writeHead(302, { 'Location': '/' });
+      return res.end();
+    }
+  }
+
   let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'prototipo-fluxo-relatorios.html' : pathname);
 
   // Prevenção de Path Traversal

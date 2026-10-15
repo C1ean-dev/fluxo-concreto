@@ -428,6 +428,10 @@
       <button class="btn sm" id="btnDownloadDb" title="Fazer download do arquivo database.sqlite">Baixar .sqlite</button>
       <button class="btn sm ghost" id="btnResetDb" title="Recriar e semear as tabelas com dados padrão">Restaurar Padrão</button>
       <a href="prototipo-fluxo-relatorios.html" class="btn sm primary">← Voltar ao Fluxo</a>
+      <div id="userProfile" class="user-profile" style="display:none; align-items:center; gap:8px; margin-left:4px; font-size:12px; background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15);">
+        <span id="userEmail" style="font-weight:600; color:#38bdf8;"></span>
+        <button id="btnLogout" class="btn sm ghost" style="padding:2px 8px; font-size:11px;" title="Encerrar sessão">Sair</button>
+      </div>
     </div>
   </header>
 
@@ -1108,6 +1112,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('modalClose').addEventListener('click', closeModal);
   document.getElementById('dbModal').addEventListener('click', (e) => {
     if (e.target.id === 'dbModal') closeModal();
+  });
+
+  // Perfil do Usuário e Logout
+  fetch('/api/auth/me').then(r => r.json()).then(data => {
+    if (data.authenticated && data.user) {
+      const profile = document.getElementById('userProfile');
+      const email = document.getElementById('userEmail');
+      if (profile && email) {
+        email.textContent = data.user.email;
+        profile.style.display = 'inline-flex';
+      }
+    }
+  }).catch(() => {});
+
+  document.getElementById('btnLogout')?.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    window.location.href = '/login.html';
   });
 });
 </script>

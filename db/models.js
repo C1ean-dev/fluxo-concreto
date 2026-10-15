@@ -122,6 +122,37 @@ class Log extends Model {
 }
 
 /**
+ * Modelo para Tokens de Autenticação (OTP de 6 dígitos e Magic Link)
+ */
+class AuthToken extends Model {
+  static tableName = 'auth_tokens';
+  static primaryKey = 'id';
+  static schema = {
+    id:         { type: 'integer', primaryKey: true, autoIncrement: true },
+    email:      { type: 'string', notNull: true },
+    otp:        { type: 'string', notNull: true },
+    token:      { type: 'string', notNull: true },
+    expires_at: { type: 'string', notNull: true },
+    used:       { type: 'boolean', default: false },
+    created_at: { type: 'date' }
+  };
+}
+
+/**
+ * Modelo para Sessões Ativas dos Usuários
+ */
+class Session extends Model {
+  static tableName = 'sessions';
+  static primaryKey = 'id';
+  static schema = {
+    id:         { type: 'string', primaryKey: true },
+    email:      { type: 'string', notNull: true },
+    expires_at: { type: 'string', notNull: true },
+    created_at: { type: 'date' }
+  };
+}
+
+/**
  * Sincroniza todas as tabelas de todos os modelos
  */
 async function syncAllModels() {
@@ -129,6 +160,8 @@ async function syncAllModels() {
   await CorpoDeProva.sync();
   await Configuracao.sync();
   await Log.sync();
+  await AuthToken.sync();
+  await Session.sync();
 }
 
 module.exports = {
@@ -136,5 +169,7 @@ module.exports = {
   CorpoDeProva,
   Configuracao,
   Log,
+  AuthToken,
+  Session,
   syncAllModels
 };

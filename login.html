@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login · Falcão Bauer Concreto Projetado</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    :root {
+      --fb-navy: #0f172a;
+      --fb-blue: #0284c7;
+      --fb-blue-hover: #0369a1;
+      --fb-light: #f8fafc;
+      --fb-border: #cbd5e1;
+      --fb-text: #1e293b;
+      --fb-muted: #64748b;
+      --fb-error: #ef4444;
+      --fb-success: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #0b132b 0%, #1c2541 50%, #0f172a 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: var(--fb-text);
+    }
+
+    .auth-container {
+      width: 100%;
+      max-width: 440px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .auth-header {
+      background: var(--fb-navy);
+      padding: 32px 24px;
+      text-align: center;
+      border-bottom: 2px solid #0284c7;
+    }
+
+    .brand-title {
+      color: #38bdf8;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .brand-title svg {
+      width: 24px;
+      height: 24px;
+      fill: #38bdf8;
+    }
+
+    .brand-subtitle {
+      color: #94a3b8;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .corporate-badge {
+      display: inline-block;
+      margin-top: 14px;
+      background: rgba(2, 132, 199, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #7dd3fc;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .auth-body {
+      padding: 32px 28px;
+    }
+
+    .form-step {
+      display: none;
+    }
+
+    .form-step.active {
+      display: block;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--fb-text);
+      margin-bottom: 8px;
+    }
+
+    p.step-desc {
+      font-size: 13px;
+      color: var(--fb-muted);
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--fb-muted);
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    input[type="email"] {
+      width: 100%;
+      height: 48px;
+      padding: 0 16px;
+      border: 1.5px solid var(--fb-border);
+      border-radius: 8px;
+      font-size: 15px;
+      color: var(--fb-text);
+      transition: all 0.2s ease;
+      background: #f8fafc;
+    }
+
+    input[type="email"]:focus {
+      outline: none;
+      border-color: var(--fb-blue);
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    }
+
+    .otp-inputs {
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .otp-digit {
+      width: 48px;
+      height: 56px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      font-family: monospace;
+      border: 2px solid var(--fb-border);
+      border-radius: 8px;
+      background: #f8fafc;
+      color: var(--fb-navy);
+      transition: all 0.2s ease;
+    }
+
+    .otp-digit:focus {
+      outline: none;
+      border-color: var(--fb-blue);
+      background: #ffffff;
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+    }
+
+    .btn-submit {
+      width: 100%;
+      height: 48px;
+      background: var(--fb-blue);
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      background: var(--fb-blue-hover);
+    }
+
+    .btn-submit:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .alert {
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.4;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .alert.error {
+      display: block;
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .alert.success {
+      display: block;
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .magic-info {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 20px;
+      font-size: 12px;
+      color: #0369a1;
+      line-height: 1.5;
+    }
+
+    .magic-info b {
+      color: #0c4a6e;
+    }
+
+    .footer-actions {
+      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--fb-blue);
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px;
+      font-size: 12px;
+    }
+
+    .link-btn:hover {
+      text-decoration: underline;
+    }
+
+    .countdown {
+      color: var(--fb-muted);
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #ffffff;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-view {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .loading-view .spinner-large {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e2e8f0;
+      border-top-color: var(--fb-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-container">
+    <div class="auth-header">
+      <div class="brand-title">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Falcão Bauer
+      </div>
+      <div class="brand-subtitle">Fluxo de Relatórios de Concreto Projetado</div>
+      <div class="corporate-badge">Acesso Exclusivo @falcaobauer.com.br</div>
+    </div>
+
+    <div class="auth-body">
+      <!-- Alerta Geral -->
+      <div id="authAlert" class="alert"></div>
+
+      <!-- Carregando Magic Link -->
+      <div id="loadingView" class="loading-view" style="display: none;">
+        <div class="spinner-large"></div>
+        <h2>Validando seu acesso...</h2>
+        <p class="step-desc">Aguarde um momento enquanto confirmamos seu Magic Link.</p>
+      </div>
+
+      <!-- Passo 1: Digitar E-mail -->
+      <div id="stepEmail" class="form-step active">
+        <h2>Entrar no Sistema</h2>
+        <p class="step-desc">Digite seu e-mail institucional para receber um código de 6 dígitos e um link mágico via Resend.</p>
+
+        <form id="formSendEmail">
+          <div class="form-group">
+            <label for="inputEmail">E-mail Corporativo</label>
+            <input type="email" id="inputEmail" placeholder="seu.nome@falcaobauer.com.br" required autofocus autocomplete="email">
+          </div>
+
+          <button type="submit" id="btnSendCode" class="btn-submit">
+            <span id="btnSendText">Enviar Código &amp; Magic Link</span>
+            <div id="btnSendSpinner" class="spinner" style="display: none;"></div>
+          </button>
+        </form>
+      </div>
+
+      <!-- Passo 2: Digitar OTP -->
+      <div id="stepOtp" class="form-step">
+        <h2>Verificação em 2 Etapas</h2>
+        <p class="step-desc">Enviamos um código de 6 dígitos para <strong id="sentEmailDisplay"></strong>.</p>
+
+        <form id="formVerifyOtp">
+          <div class="form-group">
+            <label>Código de 6 dígitos (OTP)</label>
+            <div class="otp-inputs" id="otpGroup">
+              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" autofocus>
+              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
+              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
+              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
+              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
+              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
+            </div>
+          </div>
+
+          <button type="submit" id="btnVerifyCode" class="btn-submit">
+            <span id="btnVerifyText">Validar e Entrar</span>
+            <div id="btnVerifySpinner" class="spinner" style="display: none;"></div>
+          </button>
+        </form>
+
+        <div class="magic-info">
+          💡 <b>Dica Magic Link:</b> Você também pode entrar com 1 clique direto no botão enviado para a sua caixa de entrada no e-mail.
+        </div>
+
+        <div class="footer-actions">
+          <button type="button" class="link-btn" id="btnBackToEmail">← Alterar e-mail</button>
+          <div>
+            <span id="resendCountdown" class="countdown"></span>
+            <button type="button" class="link-btn" id="btnResend" style="display: none;">Reenviar código</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const alertBox = document.getElementById('authAlert');
+    const stepEmail = document.getElementById('stepEmail');
+    const stepOtp = document.getElementById('stepOtp');
+    const loadingView = document.getElementById('loadingView');
+    const inputEmail = document.getElementById('inputEmail');
+    const sentEmailDisplay = document.getElementById('sentEmailDisplay');
+    const otpDigits = Array.from(document.querySelectorAll('.otp-digit'));
+
+    let currentEmail = '';
+    let resendTimer = null;
+    let countdownSeconds = 30;
+
+    function showAlert(msg, isError = true) {
+      alertBox.textContent = msg;
+      alertBox.className = 'alert ' + (isError ? 'error' : 'success');
+    }
+
+    function clearAlert() {
+      alertBox.style.display = 'none';
+      alertBox.textContent = '';
+    }
+
+    // Verifica parâmetros na URL (ex.: token de magic link ou erro)
+    const urlParams = new URLSearchParams(window.location.search);
+    const magicToken = urlParams.get('token');
+    const errorParam = urlParams.get('error');
+
+    if (errorParam === 'expired') {
+      showAlert('O link mágico expirou ou já foi utilizado. Solicite um novo código.');
+    } else if (errorParam === 'invalid') {
+      showAlert('Link de autenticação inválido.');
+    }
+
+    // Se o usuário abriu com ?token=..., verifica automaticamente o Magic Link
+    if (magicToken) {
+      stepEmail.classList.remove('active');
+      stepOtp.classList.remove('active');
+      loadingView.style.display = 'block';
+
+      fetch(`/api/auth/verify-magic?token=${encodeURIComponent(magicToken)}`)
+        .then(async res => {
+          if (res.redirected) {
+            window.location.href = res.url;
+            return;
+          }
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.ok) {
+            window.location.href = '/';
+          } else {
+            loadingView.style.display = 'none';
+            stepEmail.classList.add('active');
+            showAlert(data.error || 'Link mágico expirado ou inválido.');
+          }
+        })
+        .catch(err => {
+          loadingView.style.display = 'none';
+          stepEmail.classList.add('active');
+          showAlert('Erro ao validar link mágico: ' + err.message);
+        });
+    }
+
+    // Passo 1: Enviar código
+    document.getElementById('formSendEmail').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      const email = inputEmail.value.trim().toLowerCase();
+      if (!email.endsWith('@falcaobauer.com.br')) {
+        showAlert('Acesso restrito! Somente e-mails corporativos @falcaobauer.com.br são permitidos.');
+        return;
+      }
+
+      const btn = document.getElementById('btnSendCode');
+      const btnText = document.getElementById('btnSendText');
+      const spinner = document.getElementById('btnSendSpinner');
+
+      btn.disabled = true;
+      btnText.textContent = 'Enviando...';
+      spinner.style.display = 'inline-block';
+
+      try {
+        const res = await fetch('/api/auth/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'Falha ao enviar código.');
+        }
+
+        currentEmail = email;
+        sentEmailDisplay.textContent = email;
+        stepEmail.classList.remove('active');
+        stepOtp.classList.add('active');
+        showAlert('Código e Magic Link enviados para ' + email + '!', false);
+
+        otpDigits[0].focus();
+        startResendCountdown();
+      } catch (err) {
+        showAlert(err.message);
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = 'Enviar Código & Magic Link';
+        spinner.style.display = 'none';
+      }
+    });
+
+    // Passo 2: Navegação e digitação dos 6 dígitos OTP
+    otpDigits.forEach((input, index) => {
+      input.addEventListener('input', (e) => {
+        const val = e.target.value.replace(/\D/g, '');
+        e.target.value = val ? val[0] : '';
+        if (val && index < otpDigits.length - 1) {
+          otpDigits[index + 1].focus();
+        }
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && index > 0) {
+          otpDigits[index - 1].focus();
+        }
+      });
+
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+        if (pasted.length >= 6) {
+          pasted.slice(0, 6).split('').forEach((char, i) => {
+            if (otpDigits[i]) otpDigits[i].value = char;
+          });
+          otpDigits[5].focus();
+          document.getElementById('formVerifyOtp').dispatchEvent(new Event('submit'));
+        }
+      });
+    });
+
+    // Passo 2: Validar OTP
+    document.getElementById('formVerifyOtp').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearAlert();
+
+      const otp = otpDigits.map(i => i.value).join('');
+      if (otp.length < 6) {
+        showAlert('Por favor, digite todos os 6 dígitos do código.');
+        return;
+      }
+
+      const btn = document.getElementById('btnVerifyCode');
+      const btnText = document.getElementById('btnVerifyText');
+      const spinner = document.getElementById('btnVerifySpinner');
+
+      btn.disabled = true;
+      btnText.textContent = 'Verificando...';
+      spinner.style.display = 'inline-block';
+
+      try {
+        const res = await fetch('/api/auth/verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentEmail, otp })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          throw new Error(data.error || 'Código incorreto ou expirado.');
+        }
+
+        showAlert('Código validado com sucesso! Redirecionando...', false);
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 600);
+      } catch (err) {
+        showAlert(err.message);
+        btn.disabled = false;
+        btnText.textContent = 'Validar e Entrar';
+        spinner.style.display = 'none';
+      }
+    });
+
+    // Botão Voltar para e-mail
+    document.getElementById('btnBackToEmail').addEventListener('click', () => {
+      clearAlert();
+      stepOtp.classList.remove('active');
+      stepEmail.classList.add('active');
+      otpDigits.forEach(i => i.value = '');
+    });
+
+    // Contador para Reenvio
+    function startResendCountdown() {
+      countdownSeconds = 30;
+      const span = document.getElementById('resendCountdown');
+      const btnResend = document.getElementById('btnResend');
+      btnResend.style.display = 'none';
+      span.style.display = 'inline';
+      span.textContent = `Aguarde ${countdownSeconds}s para reenviar`;
+
+      clearInterval(resendTimer);
+      resendTimer = setInterval(() => {
+        countdownSeconds--;
+        if (countdownSeconds <= 0) {
+          clearInterval(resendTimer);
+          span.style.display = 'none';
+          btnResend.style.display = 'inline';
+        } else {
+          span.textContent = `Aguarde ${countdownSeconds}s para reenviar`;
+        }
+      }, 1000);
+    }
+
+    // Botão Reenviar Código
+    document.getElementById('btnResend').addEventListener('click', async () => {
+      clearAlert();
+      try {
+        const res = await fetch('/api/auth/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: currentEmail })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Falha ao reenviar.');
+        showAlert('Novo código enviado com sucesso!', false);
+        otpDigits.forEach(i => i.value = '');
+        otpDigits[0].focus();
+        startResendCountdown();
+      } catch (err) {
+        showAlert(err.message);
+      }
+    });
+  </script>
+</body>
+</html>
