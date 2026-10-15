@@ -14,7 +14,8 @@ const db = require('./db/database');
 const { Card, CorpoDeProva, Configuracao, Log, syncAllModels } = require('./db/models');
 const { seedDatabase } = require('./db/seed');
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || (process.env.RAILWAY_ENVIRONMENT || process.env.DATABASE_URL || process.env.NODE_ENV === 'production' ? '0.0.0.0' : null);
 const PUBLIC_DIR = __dirname;
 
 // Módulo especializado de Inteligência Artificial (OpenRouter)
@@ -74,8 +75,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   // ==========================================
-  // ROTAS DA API REST
+  // ROTAS DE STATUS E HEALTHCHECK
   // ==========================================
+
+  // Healthcheck para Railway / Docker
+  if ((pathname === '/health' || pathname === '/healthz' || pathname === '/ping') && method === 'GET') {
+    return sendJson(res, 200, {
+      ok: true,
+      status: 'healthy',
+      uptime: Math.floor(process.uptime()),
+      engine: db.isPostgres ? 'PostgreSQL' : 'SQLite'
+    });
+  }
 
   // 1. Status do Banco
   if (pathname === '/api/status' && method === 'GET') {
@@ -560,13 +571,14 @@ const server = http.createServer(async (req, res) => {
 server.on('error', async error => {
   if (error.code === 'EADDRINUSE') {
     try {
-      const response = await fetch(`http://localhost:${PORT}/api/status`, { signal: AbortSignal.timeout(2000) });
+      const response = await fetch(`http://127.0.0.1:${PORT}/api/status`, { signal: AbortSignal.timeout(2000) });
       const status = await response.json();
       const isSameSqlite = status.engine === 'SQLite (node:sqlite)' && typeof status.file === 'string' && path.resolve(status.file) === path.resolve(db.DB_PATH);
       const isSamePg = db.isPostgres && status.engine?.includes('PostgreSQL');
       if (response.ok && status.ok && (isSameSqlite || isSamePg)) {
         console.log(`A aplicação já está em execução em http://localhost:${PORT}/. Use a janela do navegador aberta; não é necessário iniciar outro servidor.`);
         await db.closeDb();
+        process.exitCode = 0;
         return;
       }
     } catch {}
@@ -578,18 +590,44 @@ server.on('error', async error => {
   await db.closeDb();
 });
 
+function gracefulShutdown(signal) {
+  console.log(`\n[Servidor] Recebido sinal ${signal}. Encerrando graciosamente...`);
+  server.close(async () => {
+    try {
+      await db.closeDb();
+      console.log('[Servidor] Banco de dados encerrado com sucesso.');
+    } catch (err) {
+      console.error('[Servidor] Erro ao fechar banco de dados:', err.message);
+    }
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error('[Servidor] Timeout ao encerrar. Forçando saída.');
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 // Inicialização assíncrona do banco e início do servidor
 async function startServer() {
   await syncAllModels();
   await seedDatabase();
 
-  return new Promise((resolve) => {
-    server.listen(PORT, () => {
+  return new Promise((resolve, reject) => {
+    const onListenError = err => {
+      server.removeListener('listening', onListening);
+      reject(err);
+    };
+    const onListening = () => {
+      server.removeListener('error', onListenError);
       console.log(`\n========================================================`);
       console.log(`Servidor Concreto Projetado rodando com sucesso!`);
       console.log(`--------------------------------------------------------`);
-      console.log(`Aplicação Principal: http://localhost:${PORT}/`);
-      console.log(`Gerenciador do Banco: http://localhost:${PORT}/banco.html`);
+      console.log(`Aplicação Principal: http://${HOST || 'localhost'}:${PORT}/`);
+      console.log(`Gerenciador do Banco: http://${HOST || 'localhost'}:${PORT}/banco.html`);
       if (db.isPostgres) {
         console.log(`Banco de Dados:       ${db.getDbInfo()}`);
       } else {
@@ -597,13 +635,24 @@ async function startServer() {
       }
       console.log(`========================================================\n`);
       resolve(server);
-    });
+    };
+
+    server.once('error', onListenError);
+    server.once('listening', onListening);
+
+    if (HOST) {
+      server.listen(PORT, HOST);
+    } else {
+      server.listen(PORT);
+    }
   });
 }
 
 const readyPromise = startServer().catch(err => {
-  console.error('Erro fatal ao iniciar servidor/banco:', err);
-  process.exitCode = 1;
+  if (err.code !== 'EADDRINUSE') {
+    console.error('Erro fatal ao iniciar servidor/banco:', err);
+    process.exitCode = 1;
+  }
 });
 
 server.ready = readyPromise;
