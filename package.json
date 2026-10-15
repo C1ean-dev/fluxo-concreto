@@ -1,0 +1,22 @@
+{
+  "name": "fluxo-relatorios-concreto",
+  "version": "1.0.0",
+  "description": "Fluxo de relatórios de concreto projetado com persistência SQLite e ORM",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node db/seed.js",
+    "ai": "node ai.js",
+    "ai:prompt": "node ai.js --prompt",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "concreto",
+    "relatorios",
+    "nbr7680",
+    "sqlite",
+    "orm"
+  ],
+  "author": "",
+  "license": "ISC"
+}

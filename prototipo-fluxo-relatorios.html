@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fluxo de Relatórios</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">RT</div>
+      <div>
+        <h1>Fluxo de relatórios · Concreto projetado <span id="sqliteIndicator" class="pill mute" style="font-size:11px; vertical-align:middle; margin-left:6px;" title="Verificando banco SQLite...">SQLite</span></h1>
+        <p>Protótipo com dados de exemplo. Persistência SQLite via ORM.</p>
+      </div>
+    </div>
+    <div class="tools">
+      <input id="q" type="search" placeholder="Buscar card, placa ou cliente" aria-label="Buscar">
+      <label class="card-filter" for="cardFilter"><span>Filtrar cards</span><select id="cardFilter">
+        <option value="all">Todos os cards</option>
+        <option value="errors">Com erros</option>
+        <option value="below">Abaixo do mínimo</option>
+        <option value="late">Atrasados</option>
+        <option value="negative">Parecer técnico negativo</option>
+      </select></label>
+      <button class="btn" id="btnFlow">Fluxo do processo</button>
+      <button class="btn" id="btnConfig">Configurações</button>
+      <a href="banco.html" class="btn" id="btnBanco" target="_blank" title="Abrir gerenciador e editor visual do banco de dados SQLite">Ver Banco (SQLite)</a>
+      <button class="btn ghost" id="btnReset">Restaurar exemplo</button>
+      <button class="btn primary" id="btnNew">+ Novo lançamento</button>
+    </div>
+  </header>
+  <main id="board" class="board" aria-label="Quadro de relatórios"></main>
+</div>
+
+<div id="drawer" class="drawer" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="dTitle">
+    <div class="p-head">
+      <div class="p-top">
+        <div>
+          <div class="p-key" id="dKey"></div>
+          <h2 id="dTitle"></h2>
+        </div>
+        <button class="x" id="dClose" aria-label="Fechar">×</button>
+      </div>
+      <div class="actions" id="dActions"></div>
+      <div class="tabs" id="dTabs" role="tablist"></div>
+    </div>
+    <div class="p-body" id="dBody"></div>
+  </div>
+</div>
+
+<div id="modal" class="modal" hidden>
+  <div class="m-box" role="dialog" aria-modal="true" aria-labelledby="mTitle" id="mBox"></div>
+</div>
+<input type="file" id="fileIn" accept=".xlsx,.xlsm" hidden>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/vendor/xlsx.mini.min.js"></script>
+<script src="js/tabelas-k.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/formulas.js"></script>
+<script src="js/ai-pipeline.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

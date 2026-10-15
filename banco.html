@@ -1,0 +1,1107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerenciador do Banco de Dados · SQLite & ORM</title>
+<link rel="stylesheet" href="css/styles.css">
+<style>
+  :root {
+    --db-header-h: 60px;
+  }
+  body {
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  .db-app {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .db-top {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .db-title-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .db-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: #0052cc;
+    color: #fff;
+    font-size: 20px;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+  }
+  .db-title-area h1 {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .db-title-area p {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .badge-orm {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 12px;
+    background: var(--ok-bg);
+    color: var(--ok-text);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .db-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    padding: 4px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #1f845a;
+    box-shadow: 0 0 0 2px rgba(31,132,90,0.25);
+  }
+  .db-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px 24px;
+    gap: 16px;
+    max-width: 1440px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .tabs-bar {
+    display: flex;
+    gap: 6px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0;
+    overflow-x: auto;
+  }
+  .tab-btn {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .tab-btn:hover {
+    color: var(--text);
+    background: var(--surface2);
+    border-radius: 6px 6px 0 0;
+  }
+  .tab-btn.active {
+    color: var(--accent-text);
+    border-bottom-color: var(--accent);
+    background: var(--accent-bg);
+    border-radius: 6px 6px 0 0;
+  }
+  .tab-count {
+    background: var(--surface2);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .tab-btn.active .tab-count {
+    background: var(--surface);
+    color: var(--accent-text);
+  }
+  .content-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .toolbar {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    background: var(--surface3);
+  }
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 260px;
+  }
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .search-box {
+    position: relative;
+    flex: 1;
+    max-width: 380px;
+  }
+  .search-box input {
+    width: 100%;
+    padding: 6px 12px 6px 30px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface);
+    font-size: 13px;
+  }
+  .search-box::before {
+    display: none;
+  }
+  .table-responsive {
+    overflow-x: auto;
+    max-height: calc(100vh - 290px);
+    min-height: 250px;
+  }
+  table.db-grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  table.db-grid th {
+    position: sticky;
+    top: 0;
+    background: var(--surface2);
+    color: var(--text);
+    font-weight: 700;
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 2px solid var(--border);
+    border-right: 1px solid var(--border);
+    font-size: 11.5px;
+    letter-spacing: .02em;
+    z-index: 2;
+  }
+  table.db-grid td {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  table.db-grid tr:hover td {
+    background: var(--surface3);
+  }
+  .col-actions {
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    z-index: 1;
+    text-align: center;
+    width: 90px;
+    border-right: 2px solid var(--border) !important;
+  }
+  table.db-grid tr:hover .col-actions {
+    background: var(--surface3);
+  }
+  table.db-grid th.col-actions {
+    z-index: 3;
+    background: var(--surface2);
+  }
+  .btn-row {
+    padding: 3px 6px;
+    font-size: 11px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-row:hover {
+    background: var(--surface2);
+  }
+  .btn-row.delete {
+    color: var(--err-text);
+    border-color: var(--err);
+    background: var(--err-bg);
+  }
+  .btn-row.delete:hover {
+    filter: brightness(0.95);
+  }
+  .cell-json {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    color: var(--accent-text);
+    cursor: pointer;
+    background: var(--accent-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .cell-json:hover {
+    text-decoration: underline;
+  }
+  .cell-null {
+    color: var(--muted);
+    font-style: italic;
+  }
+  .pagination-bar {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .form-row label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .form-row label span.type-hint {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .form-row input, .form-row select, .form-row textarea {
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface);
+    font-size: 13px;
+    width: 100%;
+  }
+  .form-row textarea {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    min-height: 90px;
+  }
+  .sql-console {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+  }
+  .sql-editor-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sql-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    background: var(--surface2);
+    color: var(--text);
+  }
+  .sql-snippets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .sql-chip {
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-family: ui-monospace, monospace;
+  }
+  .sql-chip:hover {
+    background: var(--accent-bg);
+    color: var(--accent-text);
+    border-color: var(--accent);
+  }
+  .sql-status {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .sql-status.success {
+    background: var(--ok-bg);
+    color: var(--ok-text);
+  }
+  .sql-status.error {
+    background: var(--err-bg);
+    color: var(--err-text);
+  }
+  pre.json-view {
+    background: var(--surface2);
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 12px;
+    max-height: 60vh;
+    border: 1px solid var(--border);
+    margin: 0;
+  }
+</style>
+</head>
+<body>
+<div class="db-app">
+  <!-- Topbar -->
+  <header class="db-top">
+    <div class="db-title-area">
+      <div class="db-logo">DB</div>
+      <div>
+        <h1>
+          Gerenciador do Banco de Dados
+          <span class="badge-orm">SQLite &amp; ORM</span>
+        </h1>
+        <p>Visualizador e editor direto de tabelas, registros e consultas SQL em tempo real</p>
+      </div>
+    </div>
+    <div class="db-actions">
+      <div class="status-badge" id="dbStatus">
+        <span class="status-dot"></span>
+        <span id="dbStatusText">Conectando...</span>
+      </div>
+      <button class="btn sm" id="btnDownloadDb" title="Fazer download do arquivo database.sqlite">Baixar .sqlite</button>
+      <button class="btn sm ghost" id="btnResetDb" title="Recriar e semear as tabelas com dados padrão">Restaurar Padrão</button>
+      <a href="prototipo-fluxo-relatorios.html" class="btn sm primary">← Voltar ao Fluxo</a>
+    </div>
+  </header>
+
+  <!-- Main Area -->
+  <main class="db-main">
+    <!-- Navegação de Abas -->
+    <div class="tabs-bar" id="tabsBar">
+      <button class="tab-btn active" data-tab="cards">
+        <span>Cards (Relatórios)</span>
+        <span class="tab-count" id="count-cards">0</span>
+      </button>
+      <button class="tab-btn" data-tab="corpos_de_prova">
+        <span>Corpos de Prova (CPs)</span>
+        <span class="tab-count" id="count-corpos_de_prova">0</span>
+      </button>
+      <button class="tab-btn" data-tab="configuracoes">
+        <span>Configurações</span>
+        <span class="tab-count" id="count-configuracoes">0</span>
+      </button>
+      <button class="tab-btn" data-tab="logs">
+        <span>Logs de Auditoria</span>
+        <span class="tab-count" id="count-logs">0</span>
+      </button>
+      <button class="tab-btn" data-tab="sql">
+        <span>Console SQL</span>
+      </button>
+    </div>
+
+    <!-- Conteúdo da Tabela Selecionada -->
+    <div class="content-card" id="tableViewContainer">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Filtrar registros nesta tabela...">
+          </div>
+          <span class="hint" id="tableMetaInfo" style="font-size:12px; color:var(--muted)"></span>
+        </div>
+        <div class="toolbar-right">
+          <button class="btn sm primary" id="btnNewRow">+ Novo Registro</button>
+          <button class="btn sm" id="btnRefresh">Atualizar</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="db-grid" id="gridTable">
+          <thead><tr id="gridHead"></tr></thead>
+          <tbody id="gridBody">
+            <tr><td colspan="10" style="text-align:center; padding:32px; color:var(--muted)">Carregando registros...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-bar">
+        <div>
+          Exibindo <span id="pagStart">0</span> a <span id="pagEnd">0</span> de <span id="pagTotal">0</span> registros
+        </div>
+        <div class="page-nav">
+          <button class="btn sm" id="btnPrevPage">◀ Anterior</button>
+          <span style="padding:0 8px;">Página <b id="pagCurrent">1</b> de <b id="pagTotalPages">1</b></span>
+          <button class="btn sm" id="btnNextPage">Próxima ▶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Console SQL -->
+    <div class="content-card" id="sqlConsoleContainer" style="display:none;">
+      <div class="sql-console">
+        <div class="sql-editor-box">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="font-size:13px;">Escreva ou cole sua instrução SQL:</b>
+            <span class="hint" style="font-size:12px; color:var(--muted);">Dica: pressione <kbd>Ctrl+Enter</kbd> para executar</span>
+          </div>
+          <textarea class="sql-textarea" id="sqlQueryInput" placeholder="Ex: SELECT * FROM cards WHERE stage = 'ajuste';"></textarea>
+          
+          <div class="sql-snippets">
+            <span style="font-size:11px; color:var(--muted); align-self:center;">Exemplos rápidos:</span>
+            <button class="sql-chip" data-sql="SELECT * FROM cards LIMIT 10;">SELECT Cards</button>
+            <button class="sql-chip" data-sql="SELECT idade, COUNT(*) as qtd, ROUND(AVG(carga), 2) as media_carga FROM corpos_de_prova GROUP BY idade;">Média de Carga por Idade</button>
+            <button class="sql-chip" data-sql="SELECT stage, count(*) as total FROM cards GROUP BY stage;">Cards por Etapa</button>
+            <button class="sql-chip" data-sql="SELECT id, card_id, idade, carga, sentido, cura FROM corpos_de_prova WHERE carga < 10;">CPs Carga Baixa (&lt;10tf)</button>
+            <button class="sql-chip" data-sql="PRAGMA table_info(cards);">PRAGMA cards</button>
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button class="btn primary" id="btnRunSql">Executar SQL</button>
+            <button class="btn ghost" id="btnClearSql">Limpar</button>
+          </div>
+        </div>
+
+        <div id="sqlStatus" class="sql-status" style="display:none;"></div>
+
+        <div class="table-responsive" id="sqlResultBox" style="display:none; border:1px solid var(--border); border-radius:6px;">
+          <table class="db-grid" id="sqlGridTable">
+            <thead id="sqlGridHead"></thead>
+            <tbody id="sqlGridBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal Genérico para Novo Registro / Edição / Visualizador JSON -->
+<div id="dbModal" class="modal" hidden>
+  <div class="m-box" style="width:min(680px, 95vw);">
+    <div class="head-row">
+      <div>
+        <h2 id="modalTitle">Registro</h2>
+        <p class="hint" id="modalSubtitle">Preencha os campos abaixo</p>
+      </div>
+      <button class="x" id="modalClose">×</button>
+    </div>
+    <div id="modalBody" style="margin-top:14px;"></div>
+    <div class="foot-actions" id="modalFooter" style="margin-top:18px; display:flex; justify-content:flex-end; gap:8px;"></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+// Estado da Aplicação do Banco
+let currentTab = 'cards';
+let currentPage = 1;
+const pageSize = 50;
+let tablesMeta = {};
+let currentTableRows = [];
+let totalRows = 0;
+let totalPages = 1;
+
+// Utilitários de Requisição
+async function api(path, options = {}) {
+  try {
+    const res = await fetch(path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.error('Erro na API:', err);
+    return { ok: false, error: err.message };
+  }
+}
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  setTimeout(() => { el.className = ''; }, 4500);
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// 1. Inicialização e Status
+async function checkStatus() {
+  const res = await api('/api/status');
+  const badgeText = document.getElementById('dbStatusText');
+  if (res.ok) {
+    badgeText.textContent = `SQLite Conectado · ${res.sizeKb} KB`;
+    document.getElementById('dbStatus').style.borderColor = 'var(--ok)';
+  } else {
+    badgeText.textContent = `Desconectado / Erro`;
+    document.getElementById('dbStatus').style.borderColor = 'var(--err)';
+  }
+}
+
+async function loadTablesMeta() {
+  const res = await api('/api/db/tables');
+  if (res.ok) {
+    tablesMeta = {};
+    res.tables.forEach(t => {
+      tablesMeta[t.name] = t;
+      const countEl = document.getElementById(`count-${t.name}`);
+      if (countEl) countEl.textContent = t.count;
+    });
+  }
+}
+
+// 2. Renderização da Tabela Atual
+async function loadCurrentTable() {
+  if (currentTab === 'sql') return;
+
+  const tableMeta = tablesMeta[currentTab];
+  if (!tableMeta) return;
+
+  const searchVal = document.getElementById('searchInput').value.trim();
+  document.getElementById('tableMetaInfo').textContent = `Tabela: ${tableMeta.name} (${tableMeta.label}) · Chave Primária: ${tableMeta.primaryKey}`;
+
+  document.getElementById('gridBody').innerHTML = `<tr><td colspan="20" style="text-align:center; padding:24px; color:var(--muted)">Carregando...</td></tr>`;
+
+  const queryParams = new URLSearchParams({
+    page: currentPage,
+    limit: pageSize
+  });
+  if (searchVal) queryParams.set('q', searchVal);
+
+  const res = await api(`/api/db/table/${currentTab}?${queryParams}`);
+  if (!res.ok) {
+    document.getElementById('gridBody').innerHTML = `<tr><td colspan="20" style="text-align:center; padding:24px; color:var(--err)">Erro: ${escapeHtml(res.error)}</td></tr>`;
+    return;
+  }
+
+  currentTableRows = res.rows;
+  totalRows = res.total;
+  totalPages = res.totalPages;
+  currentPage = res.page;
+
+  // Atualiza paginação
+  document.getElementById('pagTotal').textContent = totalRows;
+  document.getElementById('pagStart').textContent = totalRows === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  document.getElementById('pagEnd').textContent = Math.min(currentPage * pageSize, totalRows);
+  document.getElementById('pagCurrent').textContent = currentPage;
+  document.getElementById('pagTotalPages').textContent = totalPages;
+  document.getElementById('btnPrevPage').disabled = currentPage <= 1;
+  document.getElementById('btnNextPage').disabled = currentPage >= totalPages;
+
+  renderGrid(tableMeta, res.rows);
+}
+
+function renderGrid(tableMeta, rows) {
+  const headEl = document.getElementById('gridHead');
+  const bodyEl = document.getElementById('gridBody');
+
+  const schemaCols = Object.keys(tableMeta.schema);
+
+  // Cabeçalho
+  let headHtml = `<th class="col-actions">Ações</th>`;
+  schemaCols.forEach(col => {
+    const colDef = tableMeta.schema[col];
+    const isPk = colDef.primaryKey;
+    headHtml += `<th>${escapeHtml(col)}${isPk ? ' (PK)' : ''}</th>`;
+  });
+  headEl.innerHTML = headHtml;
+
+  // Linhas
+  if (rows.length === 0) {
+    bodyEl.innerHTML = `<tr><td colspan="${schemaCols.length + 1}" style="text-align:center; padding:32px; color:var(--muted)">Nenhum registro encontrado nesta tabela.</td></tr>`;
+    return;
+  }
+
+  let bodyHtml = '';
+  rows.forEach(row => {
+    const pkVal = row[tableMeta.primaryKey];
+    bodyHtml += `<tr>`;
+    bodyHtml += `<td class="col-actions">
+      <div style="display:flex; gap:4px; justify-content:center;">
+        <button class="btn-row" onclick="openEditModal('${currentTab}', '${encodeURIComponent(pkVal)}')">Editar</button>
+        <button class="btn-row delete" onclick="confirmDeleteRow('${currentTab}', '${encodeURIComponent(pkVal)}')">Excluir</button>
+      </div>
+    </td>`;
+
+    schemaCols.forEach(col => {
+      const colDef = tableMeta.schema[col];
+      const val = row[col];
+
+      if (val === null || val === undefined) {
+        bodyHtml += `<td><span class="cell-null">null</span></td>`;
+      } else if (colDef.type === 'json' || typeof val === 'object') {
+        const jsonStr = typeof val === 'string' ? val : JSON.stringify(val);
+        bodyHtml += `<td><span class="cell-json" onclick="viewJsonModal('${escapeHtml(col)}', ${escapeHtml(JSON.stringify(jsonStr))})">${escapeHtml(jsonStr.substring(0, 35))}${jsonStr.length > 35 ? '...' : ''}</span></td>`;
+      } else {
+        bodyHtml += `<td>${escapeHtml(val)}</td>`;
+      }
+    });
+
+    bodyHtml += `</tr>`;
+  });
+
+  bodyEl.innerHTML = bodyHtml;
+}
+
+// 3. Modal de Visualização de JSON
+function viewJsonModal(colName, jsonRaw) {
+  let formatted = jsonRaw;
+  try {
+    const parsed = typeof jsonRaw === 'string' ? JSON.parse(jsonRaw) : jsonRaw;
+    formatted = JSON.stringify(parsed, null, 2);
+  } catch (e) {}
+
+  document.getElementById('modalTitle').textContent = `Campo JSON: ${colName}`;
+  document.getElementById('modalSubtitle').textContent = 'Visualização detalhada da estrutura dos dados';
+  document.getElementById('modalBody').innerHTML = `<pre class="json-view">${escapeHtml(formatted)}</pre>`;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn" onclick="closeModal()">Fechar</button>
+  `;
+  document.getElementById('dbModal').hidden = false;
+}
+
+// 4. Modal de Novo Registro / Edição
+function openNewModal(tableName) {
+  const meta = tablesMeta[tableName];
+  if (!meta) return;
+
+  document.getElementById('modalTitle').textContent = `Novo Registro · ${meta.label}`;
+  document.getElementById('modalSubtitle').textContent = `Insira os valores para criar um novo registro na tabela "${tableName}"`;
+
+  let formHtml = `<form id="rowForm" class="modal-form">`;
+  Object.keys(meta.schema).forEach(col => {
+    const def = meta.schema[col];
+    // Se for autoincrement, não exibe para inserção
+    if (def.autoIncrement) return;
+
+    formHtml += `<div class="form-row">
+      <label for="f_${col}">
+        ${escapeHtml(col)}
+        <span class="type-hint">(${def.type}${def.notNull ? ', obrigatório' : ''})</span>
+      </label>`;
+
+    if (def.type === 'json') {
+      const defVal = def.default !== undefined ? JSON.stringify(def.default, null, 2) : '{}';
+      formHtml += `<textarea id="f_${col}" name="${col}" rows="4">${escapeHtml(defVal)}</textarea>`;
+    } else if (col === 'stage') {
+      formHtml += `<select id="f_${col}" name="${col}">
+        <option value="entrada">Entrada de dados</option>
+        <option value="analise">Análise</option>
+        <option value="ajuste">Ajuste</option>
+        <option value="notificar">Notificar cliente</option>
+        <option value="aguardando">Aguardando idades</option>
+        <option value="relatorio">Relatório final</option>
+        <option value="finalizado">Finalizado</option>
+      </select>`;
+    } else if (col === 'cura') {
+      formHtml += `<select id="f_${col}" name="${col}">
+        <option value="Úmida">Úmida</option>
+        <option value="Ao ar">Ao ar</option>
+      </select>`;
+    } else if (col === 'sentido') {
+      formHtml += `<select id="f_${col}" name="${col}">
+        <option value="Mesmo do lançamento">Mesmo do lançamento</option>
+        <option value="Ortogonal">Ortogonal</option>
+      </select>`;
+    } else if (def.type === 'number' || def.type === 'integer') {
+      formHtml += `<input type="number" step="any" id="f_${col}" name="${col}" value="${def.default !== undefined ? def.default : ''}">`;
+    } else {
+      formHtml += `<input type="text" id="f_${col}" name="${col}" value="${def.default !== undefined ? escapeHtml(def.default) : ''}">`;
+    }
+
+    formHtml += `</div>`;
+  });
+  formHtml += `</form>`;
+
+  document.getElementById('modalBody').innerHTML = formHtml;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn primary" onclick="submitCreateRow('${tableName}')">Criar Registro</button>
+  `;
+  document.getElementById('dbModal').hidden = false;
+}
+
+async function submitCreateRow(tableName) {
+  const meta = tablesMeta[tableName];
+  const form = document.getElementById('rowForm');
+  const formData = new FormData(form);
+  const data = {};
+
+  for (const [key, val] of formData.entries()) {
+    const def = meta.schema[key];
+    if (def.type === 'number' || def.type === 'integer') {
+      data[key] = val === '' ? null : Number(val);
+    } else if (def.type === 'json') {
+      try {
+        data[key] = val.trim() === '' ? null : JSON.parse(val);
+      } catch (err) {
+        alert(`O campo "${key}" contém um JSON inválido: ` + err.message);
+        return;
+      }
+    } else {
+      data[key] = val;
+    }
+  }
+
+  const res = await api(`/api/db/table/${tableName}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+
+  if (res.ok) {
+    toast('Registro criado com sucesso!', 'ok');
+    closeModal();
+    await loadTablesMeta();
+    await loadCurrentTable();
+  } else {
+    alert('Erro ao criar registro: ' + res.error);
+  }
+}
+
+async function openEditModal(tableName, encodedPk) {
+  const pk = decodeURIComponent(encodedPk);
+  const meta = tablesMeta[tableName];
+  const row = currentTableRows.find(r => String(r[meta.primaryKey]) === String(pk));
+  if (!row) return alert('Registro não encontrado na página atual');
+
+  document.getElementById('modalTitle').textContent = `Editar Registro · ${pk}`;
+  document.getElementById('modalSubtitle').textContent = `Tabela: ${tableName} | ID: ${pk}`;
+
+  let formHtml = `<form id="editForm" class="modal-form">`;
+  Object.keys(meta.schema).forEach(col => {
+    const def = meta.schema[col];
+    const isPk = col === meta.primaryKey;
+    const currentVal = row[col];
+
+    formHtml += `<div class="form-row">
+      <label for="e_${col}">
+        ${escapeHtml(col)}${isPk ? ' (Chave Primária - Somente leitura)' : ''}
+        <span class="type-hint">(${def.type})</span>
+      </label>`;
+
+    if (isPk) {
+      formHtml += `<input type="text" id="e_${col}" name="${col}" value="${escapeHtml(currentVal)}" disabled style="background:var(--surface2);">`;
+    } else if (def.type === 'json') {
+      const valStr = currentVal !== null && currentVal !== undefined ? (typeof currentVal === 'string' ? currentVal : JSON.stringify(currentVal, null, 2)) : '';
+      formHtml += `<textarea id="e_${col}" name="${col}" rows="5">${escapeHtml(valStr)}</textarea>`;
+    } else if (col === 'stage') {
+      formHtml += `<select id="e_${col}" name="${col}">
+        ${['entrada','analise','ajuste','notificar','aguardando','relatorio','finalizado'].map(s => 
+          `<option value="${s}" ${s === currentVal ? 'selected' : ''}>${s}</option>`
+        ).join('')}
+      </select>`;
+    } else if (col === 'cura') {
+      formHtml += `<select id="e_${col}" name="${col}">
+        <option value="Úmida" ${currentVal === 'Úmida' ? 'selected' : ''}>Úmida</option>
+        <option value="Ao ar" ${currentVal === 'Ao ar' ? 'selected' : ''}>Ao ar</option>
+      </select>`;
+    } else if (col === 'sentido') {
+      formHtml += `<select id="e_${col}" name="${col}">
+        <option value="Mesmo do lançamento" ${currentVal === 'Mesmo do lançamento' ? 'selected' : ''}>Mesmo do lançamento</option>
+        <option value="Ortogonal" ${currentVal === 'Ortogonal' ? 'selected' : ''}>Ortogonal</option>
+      </select>`;
+    } else if (def.type === 'number' || def.type === 'integer') {
+      formHtml += `<input type="number" step="any" id="e_${col}" name="${col}" value="${currentVal !== null && currentVal !== undefined ? currentVal : ''}">`;
+    } else {
+      formHtml += `<input type="text" id="e_${col}" name="${col}" value="${currentVal !== null && currentVal !== undefined ? escapeHtml(currentVal) : ''}">`;
+    }
+
+    formHtml += `</div>`;
+  });
+  formHtml += `</form>`;
+
+  document.getElementById('modalBody').innerHTML = formHtml;
+  document.getElementById('modalFooter').innerHTML = `
+    <button class="btn" onclick="closeModal()">Cancelar</button>
+    <button class="btn primary" onclick="submitEditRow('${tableName}', '${encodeURIComponent(pk)}')">Salvar Alterações</button>
+  `;
+  document.getElementById('dbModal').hidden = false;
+}
+
+async function submitEditRow(tableName, encodedPk) {
+  const pk = decodeURIComponent(encodedPk);
+  const meta = tablesMeta[tableName];
+  const form = document.getElementById('editForm');
+  const formData = new FormData(form);
+  const data = {};
+
+  for (const [key, val] of formData.entries()) {
+    if (key === meta.primaryKey) continue;
+    const def = meta.schema[key];
+    if (def.type === 'number' || def.type === 'integer') {
+      data[key] = val === '' ? null : Number(val);
+    } else if (def.type === 'json') {
+      try {
+        data[key] = val.trim() === '' ? null : JSON.parse(val);
+      } catch (err) {
+        alert(`O campo "${key}" contém um JSON inválido: ` + err.message);
+        return;
+      }
+    } else {
+      data[key] = val;
+    }
+  }
+
+  const res = await api(`/api/db/row/${tableName}/${encodeURIComponent(pk)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  });
+
+  if (res.ok) {
+    toast(`Registro ${pk} atualizado com sucesso!`, 'ok');
+    closeModal();
+    await loadCurrentTable();
+  } else {
+    alert('Erro ao atualizar registro: ' + res.error);
+  }
+}
+
+async function confirmDeleteRow(tableName, encodedPk) {
+  const pk = decodeURIComponent(encodedPk);
+  if (!confirm(`Tem certeza que deseja excluir o registro "${pk}" da tabela "${tableName}"?`)) {
+    return;
+  }
+
+  const res = await api(`/api/db/row/${tableName}/${encodeURIComponent(pk)}`, {
+    method: 'DELETE'
+  });
+
+  if (res.ok) {
+    toast(`Registro ${pk} excluído.`, 'warn');
+    await loadTablesMeta();
+    await loadCurrentTable();
+  } else {
+    alert('Erro ao excluir registro: ' + res.error);
+  }
+}
+
+function closeModal() {
+  document.getElementById('dbModal').hidden = true;
+  document.getElementById('modalBody').innerHTML = '';
+}
+
+// 5. Console SQL Arbitrário
+async function executeSqlQuery() {
+  const sql = document.getElementById('sqlQueryInput').value.trim();
+  if (!sql) return alert('Por favor, digite uma consulta SQL');
+
+  const statusEl = document.getElementById('sqlStatus');
+  const resultBox = document.getElementById('sqlResultBox');
+  statusEl.style.display = 'block';
+  statusEl.className = 'sql-status';
+  statusEl.textContent = 'Executando comando SQL...';
+
+  const res = await api('/api/db/query', {
+    method: 'POST',
+    body: JSON.stringify({ sql })
+  });
+
+  if (!res.ok) {
+    statusEl.className = 'sql-status error';
+    statusEl.textContent = `Erro SQL: ${res.error}`;
+    resultBox.style.display = 'none';
+    return;
+  }
+
+  if (res.type === 'SELECT') {
+    statusEl.className = 'sql-status success';
+    statusEl.textContent = `Consulta SELECT executada em ${res.timeMs}ms — ${res.count} linha(s) retornada(s).`;
+    resultBox.style.display = 'block';
+
+    const headEl = document.getElementById('sqlGridHead');
+    const bodyEl = document.getElementById('sqlGridBody');
+
+    if (res.rows.length === 0) {
+      headEl.innerHTML = `<tr><th>Resultado</th></tr>`;
+      bodyEl.innerHTML = `<tr><td style="text-align:center; padding:18px; color:var(--muted)">0 linhas retornadas.</td></tr>`;
+      return;
+    }
+
+    const cols = res.columns;
+    headEl.innerHTML = '<tr>' + cols.map(c => `<th>${escapeHtml(c)}</th>`).join('') + '</tr>';
+    bodyEl.innerHTML = res.rows.map(row => {
+      return '<tr>' + cols.map(c => {
+        const val = row[c];
+        if (val === null || val === undefined) return `<td><span class="cell-null">null</span></td>`;
+        if (typeof val === 'object') return `<td><span class="cell-json">${escapeHtml(JSON.stringify(val))}</span></td>`;
+        return `<td>${escapeHtml(val)}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+  } else {
+    statusEl.className = 'sql-status success';
+    statusEl.textContent = `Comando ${res.type} executado com sucesso em ${res.timeMs}ms! Linhas afetadas: ${res.changes || 0}${res.lastInsertRowid ? ', ID inserido: ' + res.lastInsertRowid : ''}`;
+    resultBox.style.display = 'none';
+    // Atualiza contadores das tabelas
+    await loadTablesMeta();
+  }
+}
+
+// 6. Listeners de Eventos
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkStatus();
+  await loadTablesMeta();
+  await loadCurrentTable();
+
+  // Troca de Abas
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab;
+
+      if (currentTab === 'sql') {
+        document.getElementById('tableViewContainer').style.display = 'none';
+        document.getElementById('sqlConsoleContainer').style.display = 'block';
+      } else {
+        document.getElementById('sqlConsoleContainer').style.display = 'none';
+        document.getElementById('tableViewContainer').style.display = 'flex';
+        currentPage = 1;
+        document.getElementById('searchInput').value = '';
+        loadCurrentTable();
+      }
+    });
+  });
+
+  // Busca e Refresh
+  document.getElementById('searchInput').addEventListener('input', () => {
+    currentPage = 1;
+    loadCurrentTable();
+  });
+  document.getElementById('btnRefresh').addEventListener('click', () => {
+    loadTablesMeta();
+    loadCurrentTable();
+  });
+
+  // Novo Registro
+  document.getElementById('btnNewRow').addEventListener('click', () => {
+    openNewModal(currentTab);
+  });
+
+  // Paginação
+  document.getElementById('btnPrevPage').addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      loadCurrentTable();
+    }
+  });
+  document.getElementById('btnNextPage').addEventListener('click', () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      loadCurrentTable();
+    }
+  });
+
+  // Reset do Banco
+  document.getElementById('btnResetDb').addEventListener('click', async () => {
+    if (!confirm('Deseja restaurar o banco de dados SQLite com os registros e relatórios de exemplo? Todas as alterações serão substituídas.')) return;
+    const res = await api('/api/db/reset', { method: 'POST' });
+    if (res.ok) {
+      toast('Banco de dados restaurado com sucesso!', 'ok');
+      await loadTablesMeta();
+      await loadCurrentTable();
+    } else {
+      alert('Erro ao restaurar banco: ' + res.error);
+    }
+  });
+
+  // Download do Banco
+  document.getElementById('btnDownloadDb').addEventListener('click', () => {
+    window.location.href = '/api/db/download';
+  });
+
+  // SQL Console
+  document.getElementById('btnRunSql').addEventListener('click', executeSqlQuery);
+  document.getElementById('btnClearSql').addEventListener('click', () => {
+    document.getElementById('sqlQueryInput').value = '';
+    document.getElementById('sqlStatus').style.display = 'none';
+    document.getElementById('sqlResultBox').style.display = 'none';
+  });
+
+  // Atalho Ctrl+Enter para executar SQL
+  document.getElementById('sqlQueryInput').addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      executeSqlQuery();
+    }
+  });
+
+  // Chips de exemplo SQL
+  document.querySelectorAll('.sql-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.getElementById('sqlQueryInput').value = chip.dataset.sql;
+      executeSqlQuery();
+    });
+  });
+
+  // Fechar Modal
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('dbModal').addEventListener('click', (e) => {
+    if (e.target.id === 'dbModal') closeModal();
+  });
+});
+</script>
+</body>
+</html>
