@@ -1,4 +1,4 @@
-/* Script de inicialização e seed do banco de dados SQLite.
+/* Script de inicialização e seed do banco de dados (SQLite e PostgreSQL).
    Cria as tabelas caso não existam e popula com os dados iniciais do protótipo
    (cards de exemplo nas diferentes etapas do fluxo e configurações das fórmulas). */
 
@@ -40,11 +40,11 @@ const FORMULAS_PADRAO = {
   fci: 'FCI_INICIAL_MPA * (1 + K1_CORRECAO_HD + K2_CORRECAO_DIAMETRO + K3_CORRECAO_EXTRACAO + K4_CORRECAO_CURA)'
 };
 
-function seedDatabase(forceReset = false) {
-  syncAllModels();
+async function seedDatabase(forceReset = false) {
+  await syncAllModels();
 
   if (forceReset) {
-    db.execScript(`
+    await db.execScript(`
       DELETE FROM corpos_de_prova;
       DELETE FROM cards;
       DELETE FROM logs;
@@ -53,7 +53,7 @@ function seedDatabase(forceReset = false) {
   }
 
   // Verifica se já existem dados
-  const totalCards = Card.count();
+  const totalCards = await Card.count();
   if (totalCards > 0 && !forceReset) {
     console.log(`[SEED] O banco de dados já possui ${totalCards} card(s). Nenhuma ação necessária.`);
     return;
@@ -62,7 +62,7 @@ function seedDatabase(forceReset = false) {
   console.log('[SEED] Populando banco de dados com dados iniciais...');
 
   // 1. Configuração inicial
-  Configuracao.create({
+  await Configuracao.create({
     id: 1,
     rev: 1,
     active: 'planilha',
@@ -72,10 +72,11 @@ function seedDatabase(forceReset = false) {
   });
 
   // Função auxiliar para inserir CPs de um card
-  function insertCps(cardId, rowsData) {
-    rowsData.forEach((row, idx) => {
+  async function insertCps(cardId, rowsData) {
+    for (let idx = 0; idx < rowsData.length; idx++) {
+      const row = rowsData[idx];
       const hasVal = row.slice(1).some(v => v !== null && v !== undefined && v !== '');
-      CorpoDeProva.create({
+      await CorpoDeProva.create({
         card_id: cardId,
         cp_index: idx,
         idade: row[0],
@@ -86,11 +87,11 @@ function seedDatabase(forceReset = false) {
         sentido: hasVal ? 'Mesmo do lançamento' : '',
         cura: hasVal ? 'Úmida' : ''
       });
-    });
+    }
   }
 
   // Função auxiliar para criar dados de card
-  function createCardData(id, stage, cliente, placa, rowsData, extra = {}) {
+  async function createCardData(id, stage, cliente, placa, rowsData, extra = {}) {
     const ident = {
       ...IDENT_PLACA_113,
       interessado: cliente,
@@ -98,7 +99,7 @@ function seedDatabase(forceReset = false) {
       relNumero: `025.${placa}`
     };
 
-    Card.create({
+    await Card.create({
       id,
       stage,
       placa: String(placa),
@@ -117,9 +118,9 @@ function seedDatabase(forceReset = false) {
       final_sent: extra.final_sent || null
     });
 
-    insertCps(id, rowsData);
+    await insertCps(id, rowsData);
 
-    Log.create({
+    await Log.create({
       card_id: id,
       mensagem: `Card ${id} criado na etapa «${stage}»`,
       data_hora: new Date().toISOString()
@@ -131,7 +132,7 @@ function seedDatabase(forceReset = false) {
 
   // RT-113: Aguardando idades (só 3 dias preenchidos, notificados)
   const rows113 = cpsPlaca113.map((r, i) => i < 3 ? [...r] : [r[0], null, null, null, null, null, null, null]);
-  createCardData('RT-113', 'aguardando', 'Engenharia & Obras Exemplo Ltda', 113, rows113, {
+  await createCardData('RT-113', 'aguardando', 'Engenharia & Obras Exemplo Ltda', 113, rows113, {
     notified: { 3: { t: '2026-03-04T14:30:00Z', res: { media: 28.88, limit: 17.5, pass: true } } }
   });
 
@@ -142,7 +143,7 @@ function seedDatabase(forceReset = false) {
     else copy.fill(null, 1);
     return copy;
   });
-  createCardData('RT-114', 'ajuste', 'Cliente Exemplo B (em ajuste)', 114, rows114);
+  await createCardData('RT-114', 'ajuste', 'Cliente Exemplo B (em ajuste)', 114, rows114);
 
   // RT-115: Análise (com divergência > 10% nas alturas)
   const rows115 = cpsPlaca113.map((r, i) => {
@@ -151,15 +152,15 @@ function seedDatabase(forceReset = false) {
     if (i >= 3) copy.fill(null, 1);
     return copy;
   });
-  createCardData('RT-115', 'analise', 'Cliente Exemplo C (com divergência)', 115, rows115);
+  await createCardData('RT-115', 'analise', 'Cliente Exemplo C (com divergência)', 115, rows115);
 
   // RT-116: Entrada (em branco para digitação/importação)
   const rows116 = cpsPlaca113.map(r => [r[0], null, null, null, null, null, null, null]);
-  createCardData('RT-116', 'entrada', 'Cliente Exemplo D (novo lote)', 116, rows116);
+  await createCardData('RT-116', 'entrada', 'Cliente Exemplo D (novo lote)', 116, rows116);
 
   // RT-117: Análise de IA (3 dias calculados e com parecer emitido antes da notificação)
   const rows117 = cpsPlaca113.map((r, i) => i < 3 ? [...r] : [r[0], null, null, null, null, null, null, null]);
-  createCardData('RT-117', 'ia', 'Cliente Exemplo E (parecer emitido pela IA)', 117, rows117, {
+  await createCardData('RT-117', 'ia', 'Cliente Exemplo E (parecer emitido pela IA)', 117, rows117, {
     ai_analysis: {
       verdict: 'conforme',
       summary: 'Resistência de 3 dias atingiu média de 28.88 MPa (82,5% do fck 35 MPa, acima dos 50% normativos). Amostras homogêneas e aptas para notificação.',
@@ -171,10 +172,10 @@ function seedDatabase(forceReset = false) {
 
   // RT-119: Notificar cliente (pronto para envio após aprovação de IA)
   const rows119 = cpsPlaca113.map((r, i) => i < 3 ? [...r] : [r[0], null, null, null, null, null, null, null]);
-  createCardData('RT-119', 'notificar', 'Cliente Exemplo H (pronto p/ notificação)', 119, rows119);
+  await createCardData('RT-119', 'notificar', 'Cliente Exemplo H (pronto p/ notificação)', 119, rows119);
 
   // RT-118: Relatório final (3, 7 e 28 dias notificados)
-  createCardData('RT-118', 'relatorio', 'Cliente Exemplo F (concluído)', 118, cpsPlaca113, {
+  await createCardData('RT-118', 'relatorio', 'Cliente Exemplo F (concluído)', 118, cpsPlaca113, {
     notified: {
       3: { t: '2026-03-04T10:00:00Z', res: { media: 28.88, limit: 17.5, pass: true } },
       7: { t: '2026-03-08T10:00:00Z', res: { media: 35.12, limit: 26.25, pass: true } },
@@ -183,7 +184,7 @@ function seedDatabase(forceReset = false) {
   });
 
   // RT-110: Finalizado
-  createCardData('RT-110', 'finalizado', 'Cliente Exemplo G (arquivado)', 110, cpsPlaca113, {
+  await createCardData('RT-110', 'finalizado', 'Cliente Exemplo G (arquivado)', 110, cpsPlaca113, {
     notified: {
       3: { t: '2026-03-04T10:00:00Z', res: { media: 28.88, limit: 17.5, pass: true } },
       7: { t: '2026-03-08T10:00:00Z', res: { media: 35.12, limit: 26.25, pass: true } },
@@ -196,7 +197,7 @@ function seedDatabase(forceReset = false) {
 }
 
 if (require.main === module) {
-  seedDatabase(true);
+  seedDatabase(true).then(() => db.closeDb()).catch(err => { console.error(err); process.exit(1); });
 }
 
 module.exports = {

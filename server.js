@@ -1,6 +1,5 @@
-/* Servidor HTTP e API REST para persistência SQLite e Gerenciamento do Banco.
-   Sem dependências externas - utiliza apenas módulos nativos do Node.js.
-   Porta padrão: 3000 (ou variável de ambiente PORT). */
+/* Servidor HTTP e API REST com suporte a SQLite e PostgreSQL (Railway).
+   Porta padrão: 3000 (ou variável de ambiente PORT fornecida pelo Railway). */
 
 // Carrega variáveis do arquivo .env nativamente no Node.js
 if (typeof process.loadEnvFile === 'function') {
@@ -20,12 +19,6 @@ const PUBLIC_DIR = __dirname;
 
 // Módulo especializado de Inteligência Artificial (OpenRouter)
 const { analyzeCardWithAi, buildAiPrompt, classifyCard, settingsOf, OPENROUTER_CONFIG } = require('./ai');
-
-// Garante que a estrutura das tabelas está sincronizada com novas colunas
-syncAllModels();
-
-// Inicializa e popula o banco de dados caso esteja vazio
-seedDatabase();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -87,18 +80,29 @@ const server = http.createServer(async (req, res) => {
   // 1. Status do Banco
   if (pathname === '/api/status' && method === 'GET') {
     try {
+      const counts = {
+        cards: await Card.count(),
+        corpos_de_prova: await CorpoDeProva.count(),
+        configuracoes: await Configuracao.count(),
+        logs: await Log.count()
+      };
+
+      if (db.isPostgres) {
+        return sendJson(res, 200, {
+          ok: true,
+          engine: 'PostgreSQL (pg)',
+          database: db.getDbInfo(),
+          counts
+        });
+      }
+
       const stats = fs.statSync(db.DB_PATH);
       return sendJson(res, 200, {
         ok: true,
         engine: 'SQLite (node:sqlite)',
         file: db.DB_PATH,
         sizeKb: (stats.size / 1024).toFixed(2),
-        counts: {
-          cards: Card.count(),
-          corpos_de_prova: CorpoDeProva.count(),
-          configuracoes: Configuracao.count(),
-          logs: Log.count()
-        }
+        counts
       });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
@@ -108,8 +112,16 @@ const server = http.createServer(async (req, res) => {
   // 2. Estado completo para o Frontend (/api/state)
   if (pathname === '/api/state' && method === 'GET') {
     try {
-      const allCards = Card.allWithCps({ orderBy: 'id ASC' });
-      const configRecord = Configuracao.findById(1);
+      const allCards = await Card.allWithCps({ orderBy: 'id ASC' });
+      const configRecord = await Configuracao.findById(1);
+      const allLogs = await Log.all({ orderBy: 'data_hora ASC, id ASC' });
+      const logsByCard = {};
+      for (const entry of allLogs) {
+        if (entry.card_id) {
+          if (!logsByCard[entry.card_id]) logsByCard[entry.card_id] = [];
+          logsByCard[entry.card_id].push({ t: entry.data_hora, text: entry.mensagem });
+        }
+      }
 
       // Formata os cards no padrão que o app.js consome (cps como objetos com arrays h e d)
       const formattedCards = allCards.map(c => {
@@ -161,7 +173,7 @@ const server = http.createServer(async (req, res) => {
           cfgSnap: c.cfg_snap || null,
           finalSent: c.final_sent || null,
           notifLog: c.notification_history || [],
-          log: Log.findMany({card_id:c.id},{orderBy:'data_hora ASC, id ASC'}).map(entry => ({t:entry.data_hora,text:entry.mensagem}))
+          log: logsByCard[c.id] || []
         };
       });
 
@@ -185,13 +197,13 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 3. Salvar Estado do Frontend no SQLite (/api/save)
+  // 3. Salvar Estado do Frontend (/api/save)
   if (pathname === '/api/save' && method === 'POST') {
     try {
       const payload = await parseBody(req);
       const { cards, config } = payload;
 
-      db.transaction(() => {
+      await db.transaction(async () => {
         // Atualiza ou insere configuração
         if (config) {
           const cfgData = {
@@ -203,14 +215,14 @@ const server = http.createServer(async (req, res) => {
             decision: config.decision || null,
             ai: config.ai || null
           };
-          const exists = Configuracao.findById(1);
-          if (exists) Configuracao.update(1, cfgData);
-          else Configuracao.create({ id: 1, ...cfgData });
+          const exists = await Configuracao.findById(1);
+          if (exists) await Configuracao.update(1, cfgData);
+          else await Configuracao.create({ id: 1, ...cfgData });
         }
 
         // Atualiza ou insere cards
         if (Array.isArray(cards)) {
-          cards.forEach(c => {
+          for (const c of cards) {
             const cardData = {
               id: c.id,
               stage: c.stage,
@@ -234,24 +246,27 @@ const server = http.createServer(async (req, res) => {
               final_sent: c.finalSent || null
             };
 
-            const existingCard = Card.findById(c.id);
+            const existingCard = await Card.findById(c.id);
             cardData.notification_history = [...new Map([...(existingCard?.notification_history || []),...(cardData.notification_history || [])].map(entry => [JSON.stringify(entry),entry])).values()];
-            if (existingCard) Card.update(c.id, cardData);
-            else Card.create(cardData);
-            const recorded = new Set(Log.findMany({card_id:c.id}).map(entry => JSON.stringify([entry.data_hora,entry.mensagem])));
-            for(const entry of Array.isArray(c.log) ? c.log : []){
-              if(typeof entry?.text !== 'string' || !entry.text.trim() || typeof entry.t !== 'string' || !Number.isFinite(Date.parse(entry.t))) continue;
-              const key = JSON.stringify([entry.t,entry.text]);
-              if(recorded.has(key)) continue;
-              Log.create({card_id:c.id,mensagem:entry.text,data_hora:entry.t});
+            if (existingCard) await Card.update(c.id, cardData);
+            else await Card.create(cardData);
+
+            const existingLogs = await Log.findMany({ card_id: c.id });
+            const recorded = new Set(existingLogs.map(entry => JSON.stringify([entry.data_hora, entry.mensagem])));
+            for (const entry of Array.isArray(c.log) ? c.log : []) {
+              if (typeof entry?.text !== 'string' || !entry.text.trim() || typeof entry.t !== 'string' || !Number.isFinite(Date.parse(entry.t))) continue;
+              const key = JSON.stringify([entry.t, entry.text]);
+              if (recorded.has(key)) continue;
+              await Log.create({ card_id: c.id, mensagem: entry.text, data_hora: entry.t });
               recorded.add(key);
             }
 
             // Atualiza CPs se fornecidos
             if (Array.isArray(c.cps)) {
               // Remove anteriores deste card para substituir atomicamente
-              db.execute('DELETE FROM corpos_de_prova WHERE card_id = ?;', [c.id]);
-              c.cps.forEach((item, idx) => {
+              await db.execute('DELETE FROM corpos_de_prova WHERE card_id = ?;', [c.id]);
+              for (let idx = 0; idx < c.cps.length; idx++) {
+                const item = c.cps[idx];
                 let idade, h1, h2, h3, d1, d2, massa, carga, sentido, cura;
                 if (Array.isArray(item)) {
                   [idade, h1, h2, h3, d1, d2, massa, carga, sentido, cura] = item;
@@ -269,7 +284,7 @@ const server = http.createServer(async (req, res) => {
                 }
                 const toNum = v => (v === '' || v === null || v === undefined ? null : Number(v));
 
-                CorpoDeProva.create({
+                await CorpoDeProva.create({
                   card_id: c.id,
                   cp_index: idx,
                   idade: Number(idade) || 3,
@@ -283,26 +298,26 @@ const server = http.createServer(async (req, res) => {
                   sentido: String(sentido || 'Mesmo do lançamento'),
                   cura: String(cura || 'Úmida')
                 });
-              });
+              }
             }
-          });
+          }
         }
       });
 
-      return sendJson(res, 200, { ok: true, message: 'Dados salvos no SQLite com sucesso!' });
+      return sendJson(res, 200, { ok: true, message: `Dados salvos no ${db.isPostgres ? 'PostgreSQL' : 'SQLite'} com sucesso!` });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
     }
   }
 
-  // Preview and execution consume the exact same builders and current card snapshot.
+  // Preview e execução de IA / Decisão
   if (['/api/decision/analyze','/api/decision/prompt','/api/ai/analyze','/api/ai/prompt'].includes(pathname) && (method === 'POST' || (method === 'GET' && pathname.endsWith('/prompt')))) {
     try {
       const body = method === 'POST' ? await parseBody(req) : {cardId:reqUrl.searchParams.get('cardId')};
-      const card = body.card || (body.cardId ? Card.findWithCps(body.cardId) : Card.allWithCps()[0]);
+      const card = body.card || (body.cardId ? await Card.findWithCps(body.cardId) : (await Card.allWithCps())[0]);
       if(!card) return sendJson(res,404,{ok:false,error:'Card não localizado.'});
       if(body.cardId && card.id !== body.cardId) return sendJson(res,400,{ok:false,error:'O card informado não corresponde ao identificador.'});
-      const storedConfig = Configuracao.findById(1) || {};
+      const storedConfig = (await Configuracao.findById(1)) || {};
       const config = settingsOf({config:body.config || {...storedConfig, ...(body.aiConfig ? {ai:body.aiConfig} : {})}});
       const Pipeline = require('./js/ai-pipeline');
       const decision = pathname.startsWith('/api/decision/');
@@ -313,8 +328,6 @@ const server = http.createServer(async (req, res) => {
       }
       if(!decision && !Pipeline.validDecision(card,config)) return sendJson(res,409,{ok:false,error:'Classificação ausente ou desatualizada. Classifique os dados atuais antes do parecer.'});
       const result = decision ? await classifyCard(card,{config}) : await analyzeCardWithAi(card,body.customPrompt || '',{config});
-      // The browser applies the result only if its execution token and inputs are still current,
-      // then persists it through /api/save. Never write an asynchronous result over newer data here.
       return sendJson(res,200,{ok:true,[decision ? 'decision' : 'analysis']:result});
     } catch(error) { return sendJson(res,500,{ok:false,error:error.message}); }
   }
@@ -326,18 +339,23 @@ const server = http.createServer(async (req, res) => {
   // Listar todas as tabelas e schemas
   if (pathname === '/api/db/tables' && method === 'GET') {
     try {
-      const tablesInfo = [
+      const tableDefs = [
         { name: 'cards', model: Card, label: 'Cards (Relatórios)' },
         { name: 'corpos_de_prova', model: CorpoDeProva, label: 'Corpos de Prova (CPs)' },
         { name: 'configuracoes', model: Configuracao, label: 'Configurações de Tabelas e Fórmulas' },
         { name: 'logs', model: Log, label: 'Logs do Sistema' }
-      ].map(t => ({
-        name: t.name,
-        label: t.label,
-        count: t.model.count(),
-        schema: t.model.schema,
-        primaryKey: t.model.primaryKey
-      }));
+      ];
+
+      const tablesInfo = [];
+      for (const t of tableDefs) {
+        tablesInfo.push({
+          name: t.name,
+          label: t.label,
+          count: await t.model.count(),
+          schema: t.model.schema,
+          primaryKey: t.model.primaryKey
+        });
+      }
 
       return sendJson(res, 200, { ok: true, tables: tablesInfo });
     } catch (err) {
@@ -364,15 +382,16 @@ const server = http.createServer(async (req, res) => {
       const params = [];
       if (search) {
         const cols = Object.keys(model.schema);
-        const conditions = cols.map(col => `CAST("${col}" AS TEXT) LIKE ?`);
+        const likeOperator = db.isPostgres ? 'ILIKE' : 'LIKE';
+        const conditions = cols.map(col => `CAST("${col}" AS TEXT) ${likeOperator} ?`);
         whereClause = `WHERE (${conditions.join(' OR ')})`;
         cols.forEach(() => params.push(`%${search}%`));
       }
 
-      const totalRow = db.queryOne(`SELECT COUNT(*) AS total FROM "${tableName}" ${whereClause};`, params);
+      const totalRow = await db.queryOne(`SELECT COUNT(*) AS total FROM "${tableName}" ${whereClause};`, params);
       const total = totalRow ? Number(totalRow.total) : 0;
 
-      const rows = db.query(`SELECT * FROM "${tableName}" ${whereClause} LIMIT ${limit} OFFSET ${offset};`, params);
+      const rows = await db.query(`SELECT * FROM "${tableName}" ${whereClause} LIMIT ${limit} OFFSET ${offset};`, params);
 
       return sendJson(res, 200, {
         ok: true,
@@ -381,7 +400,7 @@ const server = http.createServer(async (req, res) => {
         limit,
         total,
         totalPages: Math.ceil(total / limit) || 1,
-        rows
+        rows: rows.map(r => model._deserialize(r))
       });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
@@ -397,7 +416,7 @@ const server = http.createServer(async (req, res) => {
       if (!model) return sendJson(res, 400, { ok: false, error: 'Tabela não encontrada' });
 
       const data = await parseBody(req);
-      const created = model.create(data);
+      const created = await model.create(data);
       return sendJson(res, 201, { ok: true, row: created });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
@@ -416,7 +435,7 @@ const server = http.createServer(async (req, res) => {
       if (!model) return sendJson(res, 400, { ok: false, error: 'Tabela não encontrada' });
 
       const data = await parseBody(req);
-      const updated = model.update(id, data);
+      const updated = await model.update(id, data);
       return sendJson(res, 200, { ok: true, row: updated });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
@@ -434,7 +453,7 @@ const server = http.createServer(async (req, res) => {
       const model = models[tableName];
       if (!model) return sendJson(res, 400, { ok: false, error: 'Tabela não encontrada' });
 
-      const deleted = model.delete(id);
+      const deleted = await model.delete(id);
       return sendJson(res, 200, { ok: true, deleted });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
@@ -452,8 +471,8 @@ const server = http.createServer(async (req, res) => {
       const trimmed = sql.trim();
       const start = Date.now();
 
-      if (/^select\b/i.test(trimmed) || /^pragma\b/i.test(trimmed)) {
-        const rows = db.query(trimmed);
+      if (/^select\b/i.test(trimmed) || /^pragma\b/i.test(trimmed) || /^show\b/i.test(trimmed)) {
+        const rows = await db.query(trimmed);
         const timeMs = Date.now() - start;
         return sendJson(res, 200, {
           ok: true,
@@ -464,7 +483,7 @@ const server = http.createServer(async (req, res) => {
           rows
         });
       } else {
-        const result = db.execute(trimmed);
+        const result = await db.execute(trimmed);
         const timeMs = Date.now() - start;
         return sendJson(res, 200, {
           ok: true,
@@ -482,8 +501,8 @@ const server = http.createServer(async (req, res) => {
   // Resetar / Semear dados padrão
   if (pathname === '/api/db/reset' && method === 'POST') {
     try {
-      seedDatabase(true);
-      return sendJson(res, 200, { ok: true, message: 'Banco de dados restaurado com sucesso!' });
+      await seedDatabase(true);
+      return sendJson(res, 200, { ok: true, message: `Banco de dados ${db.isPostgres ? 'PostgreSQL' : 'SQLite'} restaurado com sucesso!` });
     } catch (err) {
       return sendJson(res, 500, { ok: false, error: err.message });
     }
@@ -491,6 +510,12 @@ const server = http.createServer(async (req, res) => {
 
   // Download do arquivo do banco SQLite
   if (pathname === '/api/db/download' && method === 'GET') {
+    if (db.isPostgres) {
+      return sendJson(res, 400, {
+        ok: false,
+        error: 'O download direto do arquivo .sqlite só está disponível no modo SQLite. No modo PostgreSQL (Railway), use pg_dump ou acesse pelo painel do Railway.'
+      });
+    }
     try {
       res.writeHead(200, {
         'Content-Type': 'application/octet-stream',
@@ -532,30 +557,55 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.on('error',async error => {
-  if(error.code === 'EADDRINUSE'){
+server.on('error', async error => {
+  if (error.code === 'EADDRINUSE') {
     try {
-      const response = await fetch(`http://localhost:${PORT}/api/status`,{signal:AbortSignal.timeout(2000)});
+      const response = await fetch(`http://localhost:${PORT}/api/status`, { signal: AbortSignal.timeout(2000) });
       const status = await response.json();
-      if(response.ok && status.ok && status.engine === 'SQLite (node:sqlite)' && typeof status.file === 'string' && path.resolve(status.file) === path.resolve(db.DB_PATH)){
+      const isSameSqlite = status.engine === 'SQLite (node:sqlite)' && typeof status.file === 'string' && path.resolve(status.file) === path.resolve(db.DB_PATH);
+      const isSamePg = db.isPostgres && status.engine?.includes('PostgreSQL');
+      if (response.ok && status.ok && (isSameSqlite || isSamePg)) {
         console.log(`A aplicação já está em execução em http://localhost:${PORT}/. Use a janela do navegador aberta; não é necessário iniciar outro servidor.`);
-        db.closeDb();
+        await db.closeDb();
         return;
       }
     } catch {}
     console.error(`A porta ${PORT} está ocupada por outra aplicação. Encerre essa aplicação ou escolha outra porta usando a variável PORT.`);
-  } else console.error(`Não foi possível iniciar o servidor: ${error.message}`);
+  } else {
+    console.error(`Não foi possível iniciar o servidor: ${error.message}`);
+  }
   process.exitCode = 1;
-  db.closeDb();
+  await db.closeDb();
 });
-server.listen(PORT, () => {
-  console.log(`\n========================================================`);
-  console.log(`Servidor Concreto Projetado rodando com sucesso!`);
-  console.log(`--------------------------------------------------------`);
-  console.log(`Aplicação Principal: http://localhost:${PORT}/`);
-  console.log(`Gerenciador do Banco: http://localhost:${PORT}/banco.html`);
-  console.log(`Arquivo SQLite:       ${db.DB_PATH}`);
-  console.log(`========================================================\n`);
+
+// Inicialização assíncrona do banco e início do servidor
+async function startServer() {
+  await syncAllModels();
+  await seedDatabase();
+
+  return new Promise((resolve) => {
+    server.listen(PORT, () => {
+      console.log(`\n========================================================`);
+      console.log(`Servidor Concreto Projetado rodando com sucesso!`);
+      console.log(`--------------------------------------------------------`);
+      console.log(`Aplicação Principal: http://localhost:${PORT}/`);
+      console.log(`Gerenciador do Banco: http://localhost:${PORT}/banco.html`);
+      if (db.isPostgres) {
+        console.log(`Banco de Dados:       ${db.getDbInfo()}`);
+      } else {
+        console.log(`Arquivo SQLite:       ${db.DB_PATH}`);
+      }
+      console.log(`========================================================\n`);
+      resolve(server);
+    });
+  });
+}
+
+const readyPromise = startServer().catch(err => {
+  console.error('Erro fatal ao iniciar servidor/banco:', err);
+  process.exitCode = 1;
 });
+
+server.ready = readyPromise;
 
 module.exports = server;

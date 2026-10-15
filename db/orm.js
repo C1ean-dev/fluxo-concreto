@@ -1,8 +1,8 @@
-/* ORM Simples e Portável para Node.js + SQLite.
-   Inspirado nos padrões ActiveRecord / DataMapper (estilo Prisma/Sequelize/Drizzle).
+/* ORM Portável para Node.js com suporte a SQLite e PostgreSQL.
+   Inspirado nos padrões ActiveRecord / DataMapper.
    Fornece mapeamento objeto-relacional com schemas tipados, serialização automática
-   de campos JSON, e operações CRUD padronizadas para facilitar a migração
-   futura para PostgreSQL ou MySQL sem refatorar o restante do código. */
+   de campos JSON, e operações CRUD assíncronas padronizadas para funcionar tanto localmente
+   com SQLite quanto em produção com PostgreSQL (Railway). */
 
 const db = require('./database');
 
@@ -16,48 +16,90 @@ class Model {
    */
   static getCreateTableSQL() {
     const cols = [];
-    const pkFields = [];
 
     for (const [colName, def] of Object.entries(this.schema)) {
       let colDef = `"${colName}" `;
 
-      // Mapeamento de tipos portáveis
-      switch (def.type) {
-        case 'integer':
-        case 'boolean':
-          colDef += 'INTEGER';
-          break;
-        case 'real':
-        case 'float':
-        case 'number':
-          colDef += 'REAL';
-          break;
-        case 'text':
-        case 'string':
-        case 'json':
-        case 'date':
-          colDef += 'TEXT';
-          break;
-        default:
-          colDef += 'TEXT';
-      }
+      if (db.isPostgres) {
+        if (def.primaryKey && def.autoIncrement) {
+          colDef += 'SERIAL PRIMARY KEY';
+          cols.push(colDef);
+          continue;
+        }
 
-      if (def.primaryKey) {
-        colDef += ' PRIMARY KEY';
-        if (def.autoIncrement) colDef += ' AUTOINCREMENT';
-      }
+        switch (def.type) {
+          case 'integer':
+            colDef += 'INTEGER';
+            break;
+          case 'boolean':
+            colDef += 'BOOLEAN';
+            break;
+          case 'real':
+          case 'float':
+          case 'number':
+            colDef += 'DOUBLE PRECISION';
+            break;
+          case 'json':
+            colDef += 'JSONB';
+            break;
+          case 'date':
+          case 'text':
+          case 'string':
+          default:
+            colDef += 'TEXT';
+        }
 
-      if (def.notNull && !def.primaryKey) {
-        colDef += ' NOT NULL';
-      }
+        if (def.primaryKey) colDef += ' PRIMARY KEY';
+        if (def.notNull && !def.primaryKey) colDef += ' NOT NULL';
 
-      if (def.default !== undefined) {
-        if (typeof def.default === 'string') {
-          colDef += ` DEFAULT '${def.default.replace(/'/g, "''")}'`;
-        } else if (typeof def.default === 'number') {
-          colDef += ` DEFAULT ${def.default}`;
-        } else if (typeof def.default === 'boolean') {
-          colDef += ` DEFAULT ${def.default ? 1 : 0}`;
+        if (def.default !== undefined) {
+          if (def.type === 'json') {
+            colDef += ` DEFAULT '${JSON.stringify(def.default)}'::jsonb`;
+          } else if (typeof def.default === 'string') {
+            colDef += ` DEFAULT '${def.default.replace(/'/g, "''")}'`;
+          } else if (typeof def.default === 'number') {
+            colDef += ` DEFAULT ${def.default}`;
+          } else if (typeof def.default === 'boolean') {
+            colDef += ` DEFAULT ${def.default ? 'TRUE' : 'FALSE'}`;
+          }
+        }
+      } else {
+        // SQLite
+        switch (def.type) {
+          case 'integer':
+          case 'boolean':
+            colDef += 'INTEGER';
+            break;
+          case 'real':
+          case 'float':
+          case 'number':
+            colDef += 'REAL';
+            break;
+          case 'text':
+          case 'string':
+          case 'json':
+          case 'date':
+          default:
+            colDef += 'TEXT';
+        }
+
+        if (def.primaryKey) {
+          colDef += ' PRIMARY KEY';
+          if (def.autoIncrement) colDef += ' AUTOINCREMENT';
+        }
+
+        if (def.notNull && !def.primaryKey) {
+          colDef += ' NOT NULL';
+        }
+
+        if (def.default !== undefined) {
+          if (typeof def.default === 'string') {
+            colDef += ` DEFAULT '${def.default.replace(/'/g, "''")}'`;
+          } else if (typeof def.default === 'number') {
+            colDef += ` DEFAULT ${def.default}`;
+          } else if (typeof def.default === 'boolean') {
+            colDef += ` DEFAULT ${def.default ? 1 : 0}`;
+          }
         }
       }
 
@@ -70,19 +112,37 @@ class Model {
   /**
    * Cria a tabela no banco de dados se ela ainda não existir
    */
-  static sync() {
+  static async sync() {
     const sql = this.getCreateTableSQL();
-    db.execScript(sql);
+    await db.execScript(sql);
 
-    // Auto-migração: adiciona colunas do schema que ainda não existam no SQLite
+    // Auto-migração: adiciona colunas do schema que ainda não existam
     try {
-      const existingCols = db.query(`PRAGMA table_info("${this.tableName}");`).map(c => c.name);
-      for (const [colName, def] of Object.entries(this.schema)) {
-        if (!existingCols.includes(colName)) {
-          let colType = 'TEXT';
-          if (def.type === 'integer' || def.type === 'boolean') colType = 'INTEGER';
-          else if (['real', 'float', 'number'].includes(def.type)) colType = 'REAL';
-          db.execute(`ALTER TABLE "${this.tableName}" ADD COLUMN "${colName}" ${colType};`);
+      if (db.isPostgres) {
+        const rows = await db.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = $1;`,
+          [this.tableName.toLowerCase()]
+        );
+        const existingCols = rows.map(r => r.column_name.toLowerCase());
+        for (const [colName, def] of Object.entries(this.schema)) {
+          if (!existingCols.includes(colName.toLowerCase())) {
+            let colType = 'TEXT';
+            if (def.type === 'integer') colType = 'INTEGER';
+            else if (def.type === 'boolean') colType = 'BOOLEAN';
+            else if (['real', 'float', 'number'].includes(def.type)) colType = 'DOUBLE PRECISION';
+            else if (def.type === 'json') colType = 'JSONB';
+            await db.execute(`ALTER TABLE "${this.tableName}" ADD COLUMN IF NOT EXISTS "${colName}" ${colType};`);
+          }
+        }
+      } else {
+        const existingCols = (await db.query(`PRAGMA table_info("${this.tableName}");`)).map(c => c.name);
+        for (const [colName, def] of Object.entries(this.schema)) {
+          if (!existingCols.includes(colName)) {
+            let colType = 'TEXT';
+            if (def.type === 'integer' || def.type === 'boolean') colType = 'INTEGER';
+            else if (['real', 'float', 'number'].includes(def.type)) colType = 'REAL';
+            await db.execute(`ALTER TABLE "${this.tableName}" ADD COLUMN "${colName}" ${colType};`);
+          }
         }
       }
     } catch (e) {
@@ -93,7 +153,7 @@ class Model {
   }
 
   /**
-   * Serializa os dados antes de gravar no banco (ex.: converte objetos/arrays em JSON string)
+   * Serializa os dados antes de gravar no banco
    */
   static _serialize(data) {
     const row = {};
@@ -106,7 +166,7 @@ class Model {
       } else if (def.type === 'json') {
         row[key] = typeof value === 'string' ? value : JSON.stringify(value);
       } else if (def.type === 'boolean') {
-        row[key] = value ? 1 : 0;
+        row[key] = db.isPostgres ? Boolean(value) : (value ? 1 : 0);
       } else {
         row[key] = value;
       }
@@ -115,7 +175,7 @@ class Model {
   }
 
   /**
-   * Deserializa os dados lidos do banco (ex.: converte strings JSON em objetos JavaScript)
+   * Deserializa os dados lidos do banco
    */
   static _deserialize(row) {
     if (!row) return null;
@@ -127,10 +187,10 @@ class Model {
         try {
           item[key] = typeof item[key] === 'string' ? JSON.parse(item[key]) : item[key];
         } catch (_) {
-          // mantém string caso não seja json válido
+          // mantém valor caso não seja string JSON válida
         }
       } else if (def.type === 'boolean') {
-        item[key] = !!item[key];
+        item[key] = Boolean(item[key]);
       }
     }
     return item;
@@ -139,7 +199,7 @@ class Model {
   /**
    * Busca todas as linhas que atendam aos filtros fornecidos
    */
-  static findMany(where = {}, options = {}) {
+  static async findMany(where = {}, options = {}) {
     let sql = `SELECT * FROM "${this.tableName}"`;
     const params = [];
     const clauses = [];
@@ -168,36 +228,36 @@ class Model {
       }
     }
 
-    const rows = db.query(sql, params);
+    const rows = await db.query(sql, params);
     return rows.map(r => this._deserialize(r));
   }
 
   /**
    * Busca todas as linhas da tabela
    */
-  static all(options = {}) {
-    return this.findMany({}, options);
+  static async all(options = {}) {
+    return await this.findMany({}, options);
   }
 
   /**
    * Busca a primeira linha que atende aos filtros
    */
-  static findOne(where = {}) {
-    const list = this.findMany(where, { limit: 1 });
+  static async findOne(where = {}) {
+    const list = await this.findMany(where, { limit: 1 });
     return list.length > 0 ? list[0] : null;
   }
 
   /**
    * Busca uma linha pela chave primária
    */
-  static findById(id) {
-    return this.findOne({ [this.primaryKey]: id });
+  static async findById(id) {
+    return await this.findOne({ [this.primaryKey]: id });
   }
 
   /**
    * Insere um novo registro no banco de dados
    */
-  static create(data) {
+  static async create(data) {
     const now = new Date().toISOString();
     const payload = { ...data };
 
@@ -209,22 +269,29 @@ class Model {
     const placeholders = keys.map(() => '?').join(', ');
     const cols = keys.map(k => `"${k}"`).join(', ');
 
-    const sql = `INSERT INTO "${this.tableName}" (${cols}) VALUES (${placeholders});`;
-    const params = Object.values(row);
+    let sql = `INSERT INTO "${this.tableName}" (${cols}) VALUES (${placeholders})`;
+    if (db.isPostgres) {
+      sql += ` RETURNING "${this.primaryKey}"`;
+    }
+    sql += ';';
 
-    const result = db.execute(sql, params);
-    const insertId = result.lastInsertRowid;
+    const params = Object.values(row);
+    const result = await db.execute(sql, params);
+
+    const insertId = db.isPostgres
+      ? (result.rows?.[0]?.[this.primaryKey] || payload[this.primaryKey])
+      : result.lastInsertRowid;
 
     if (this.schema[this.primaryKey]?.autoIncrement) {
-      return this.findById(insertId);
+      return await this.findById(insertId);
     }
-    return this.findById(payload[this.primaryKey] || insertId);
+    return await this.findById(payload[this.primaryKey] || insertId);
   }
 
   /**
    * Atualiza um registro existente pela chave primária
    */
-  static update(id, data) {
+  static async update(id, data) {
     const now = new Date().toISOString();
     const payload = { ...data };
 
@@ -233,29 +300,29 @@ class Model {
 
     const row = this._serialize(payload);
     const keys = Object.keys(row);
-    if (keys.length === 0) return this.findById(id);
+    if (keys.length === 0) return await this.findById(id);
 
     const setClauses = keys.map(k => `"${k}" = ?`).join(', ');
     const sql = `UPDATE "${this.tableName}" SET ${setClauses} WHERE "${this.primaryKey}" = ?;`;
     const params = [...Object.values(row), id];
 
-    db.execute(sql, params);
-    return this.findById(id);
+    await db.execute(sql, params);
+    return await this.findById(id);
   }
 
   /**
    * Exclui um registro pela chave primária
    */
-  static delete(id) {
+  static async delete(id) {
     const sql = `DELETE FROM "${this.tableName}" WHERE "${this.primaryKey}" = ?;`;
-    const result = db.execute(sql, [id]);
+    const result = await db.execute(sql, [id]);
     return result.changes > 0;
   }
 
   /**
    * Conta a quantidade de registros que atendem aos filtros
    */
-  static count(where = {}) {
+  static async count(where = {}) {
     let sql = `SELECT COUNT(*) AS total FROM "${this.tableName}"`;
     const params = [];
     const clauses = [];
@@ -266,15 +333,15 @@ class Model {
     }
 
     if (clauses.length > 0) sql += ` WHERE ${clauses.join(' AND ')}`;
-    const row = db.queryOne(sql, params);
+    const row = await db.queryOne(sql, params);
     return row ? Number(row.total) : 0;
   }
 
   /**
    * Executa uma consulta SQL customizada
    */
-  static raw(sql, params = []) {
-    return db.query(sql, params);
+  static async raw(sql, params = []) {
+    return await db.query(sql, params);
   }
 }
 

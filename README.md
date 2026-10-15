@@ -39,5 +39,14 @@ geração do parecer de um card antigo exige a classificação prévia.
 - `npm run ai -- RT-113`: classificação e parecer reais, sem gravar o resultado
   no banco. Essa opção consome a API configurada.
 
+## Banco de dados e Deploy no Railway
+
+O sistema conta com camada ORM com suporte a modo duplo:
+- **Local (padrão):** SQLite nativo (`node:sqlite`), sem necessidade de instalar banco externo.
+- **Produção (Railway / Nuvem):** Conexão automática ao **PostgreSQL** quando a variável `DATABASE_URL` (ou `PGHOST`) for fornecida pelo Railway.
+  - As tabelas são sincronizadas e migradas automaticamente na inicialização com tipos nativos do PostgreSQL (`JSONB`, `SERIAL`, `DOUBLE PRECISION`).
+  - O pool de conexões e transações atômicas utilizam o driver `pg` com suporte a SSL gerenciado.
+
 O servidor adiciona as novas colunas JSON ao banco existente na inicialização,
 sem redefinir os cards ou apagar configurações personalizadas.
+

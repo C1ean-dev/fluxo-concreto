@@ -120,9 +120,9 @@ if(require.main === module) {
   (async () => {
     const {Card,Configuracao} = require('./db/models');
     const id = process.argv.slice(2).find(a => !a.startsWith('--'));
-    const card = id ? Card.findWithCps(id) : Card.allWithCps()[0];
+    const card = id ? await Card.findWithCps(id) : (await Card.allWithCps())[0];
     if(!card) throw new Error('Nenhum card encontrado.');
-    const config = Configuracao.findById(1) || {};
+    const config = (await Configuracao.findById(1)) || {};
     if(process.argv.includes('--prompt')) { console.log(JSON.stringify(Pipeline.buildAiRequest(card,settingsOf({config})),null,2)); return; }
     card.decisionAnalysis = await classifyCard(card,{config});
     console.log((await analyzeCardWithAi(card,'',{config})).content);

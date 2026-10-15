@@ -593,7 +593,15 @@ async function checkStatus() {
   const res = await api('/api/status');
   const badgeText = document.getElementById('dbStatusText');
   if (res.ok) {
-    badgeText.textContent = `SQLite Conectado · ${res.sizeKb} KB`;
+    if (res.engine && res.engine.includes('PostgreSQL')) {
+      badgeText.textContent = `PostgreSQL Conectado · Railway`;
+      const btnDownload = document.getElementById('btnDownloadDb');
+      if (btnDownload) btnDownload.style.display = 'none';
+      const badgeOrm = document.querySelector('.badge-orm');
+      if (badgeOrm) badgeOrm.textContent = 'PostgreSQL & ORM';
+    } else {
+      badgeText.textContent = `SQLite Conectado · ${res.sizeKb} KB`;
+    }
     document.getElementById('dbStatus').style.borderColor = 'var(--ok)';
   } else {
     badgeText.textContent = `Desconectado / Erro`;

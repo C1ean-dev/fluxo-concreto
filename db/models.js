@@ -1,6 +1,6 @@
 /* Definição de Modelos ORM para o sistema de relatórios de concreto.
    Cada classe estende 'Model' e declara sua tabela, schema, campos e relacionamentos.
-   Pronto para migração futura para outros SGBDs (PostgreSQL, MySQL, etc). */
+   Pronto para SQLite e PostgreSQL (Railway). */
 
 const { Model } = require('./orm');
 
@@ -38,19 +38,19 @@ class Card extends Model {
   /**
    * Retorna o Card completo com a lista de Corpos de Prova (CPs) associados
    */
-  static findWithCps(cardId) {
-    const card = this.findById(cardId);
+  static async findWithCps(cardId) {
+    const card = await this.findById(cardId);
     if (!card) return null;
-    const cps = CorpoDeProva.findMany({ card_id: cardId }, { orderBy: 'cp_index ASC' });
+    const cps = await CorpoDeProva.findMany({ card_id: cardId }, { orderBy: 'cp_index ASC' });
     return { ...card, cps };
   }
 
   /**
    * Retorna todos os Cards completos com seus CPs
    */
-  static allWithCps(options = {}) {
-    const cards = this.all(options);
-    const allCps = CorpoDeProva.all({ orderBy: 'card_id ASC, cp_index ASC' });
+  static async allWithCps(options = {}) {
+    const cards = await this.all(options);
+    const allCps = await CorpoDeProva.all({ orderBy: 'card_id ASC, cp_index ASC' });
     const cpsByCard = {};
     for (const cp of allCps) {
       if (!cpsByCard[cp.card_id]) cpsByCard[cp.card_id] = [];
@@ -124,11 +124,11 @@ class Log extends Model {
 /**
  * Sincroniza todas as tabelas de todos os modelos
  */
-function syncAllModels() {
-  Card.sync();
-  CorpoDeProva.sync();
-  Configuracao.sync();
-  Log.sync();
+async function syncAllModels() {
+  await Card.sync();
+  await CorpoDeProva.sync();
+  await Configuracao.sync();
+  await Log.sync();
 }
 
 module.exports = {
