@@ -55,7 +55,8 @@ O sistema possui autenticação corporativa segura e sem senha:
   1. **Código OTP de 6 dígitos** para digitação rápida na tela de login.
   2. **Magic Link direto** para autenticação com 1 clique.
 - **Sessões Persistentes:** As sessões ativas são mantidas de forma segura no banco de dados (`sessions`) com cookies `HttpOnly` e `SameSite`.
-- **Configuração no Railway:** Adicione a variável `RESEND_API_KEY` no painel do Railway para habilitar o envio dos e-mails em produção.
+- **Flag de acesso:** `AUTH_EMAIL_ENABLED=false` (padrão) libera o acesso direto ao sistema, redireciona a tela de login para o quadro e impede o envio de códigos/links de acesso. A presença de `RESEND_API_KEY` não ativa o login automaticamente.
+- **Para reativar no Railway:** configure `AUTH_EMAIL_ENABLED=true`, `RESEND_API_KEY` e `RESEND_FROM_EMAIL` com um remetente de domínio verificado. A flag anterior `AUTH_REQUIRED` não controla mais o login. Reinicie/reimplante o serviço após alterar as variáveis.
 
 O servidor adiciona as novas colunas JSON ao banco existente na inicialização,
 sem redefinir os cards ou apagar configurações personalizadas.

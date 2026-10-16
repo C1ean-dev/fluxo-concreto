@@ -64,6 +64,7 @@ const server = http.createServer(async (req, res) => {
   const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = reqUrl.pathname;
   const method = req.method.toUpperCase();
+  const isAuthEnabled = (process.env.AUTH_EMAIL_ENABLED || '').trim().toLowerCase() === 'true';
 
   // Tratamento de CORS Preflight
   if (method === 'OPTIONS') {
@@ -92,6 +93,17 @@ const server = http.createServer(async (req, res) => {
   // ==========================================
   // ROTAS DE AUTENTICAÇÃO (Resend / OTP / Magic Link)
   // ==========================================
+
+  // Login by email is opt-in; configuring Resend alone never enables it.
+  if (!isAuthEnabled) {
+    if (pathname === '/login.html' || pathname === '/api/auth/verify-magic') {
+      res.writeHead(302, { 'Location': '/' });
+      return res.end();
+    }
+    if (pathname === '/api/auth/send-code' || pathname === '/api/auth/verify-otp') {
+      return sendJson(res, 403, { ok: false, error: 'O acesso por e-mail está desativado.' });
+    }
+  }
 
   // 1. Enviar código OTP e Magic Link
   if (pathname === '/api/auth/send-code' && method === 'POST') {
@@ -141,6 +153,7 @@ const server = http.createServer(async (req, res) => {
 
   // 4. Obter usuário da sessão atual
   if (pathname === '/api/auth/me' && method === 'GET') {
+    if (!isAuthEnabled) return sendJson(res, 200, { ok: true, enabled: false, authenticated: false, user: null });
     const user = await auth.getAuthenticatedUser(req);
     return sendJson(res, 200, { ok: true, authenticated: Boolean(user), user: user || null });
   }
@@ -616,7 +629,7 @@ const server = http.createServer(async (req, res) => {
   if(pathname.split('/').some(segment => segment.startsWith('.'))){ res.writeHead(403); return res.end('Acesso negado'); }
 
   // Verificação de autenticação para páginas HTML principais
-  const isAuthEnabled = Boolean(process.env.AUTH_REQUIRED === 'true' || (process.env.RESEND_API_KEY && process.env.NODE_ENV !== 'test'));
+
   if (isAuthEnabled && (pathname === '/' || pathname === '/prototipo-fluxo-relatorios.html' || pathname === '/banco.html')) {
     const user = await auth.getAuthenticatedUser(req);
     if (!user) {

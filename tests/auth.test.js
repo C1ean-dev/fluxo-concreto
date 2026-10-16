@@ -137,6 +137,7 @@ test('HTTP API Auth endpoints: send-code, verify-otp, me and logout', async () =
     process.env.DATABASE_PATH = path.join(temp, 'test.sqlite');
     process.env.PORT = '0';
     process.env.RESEND_API_KEY = 'test_key';
+    process.env.AUTH_EMAIL_ENABLED = 'true';
 
     const server = require('../server');
     if (!server.listening) await once(server, 'listening');
