@@ -1,391 +1,89 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login · Falcão Bauer Concreto Projetado</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Acesso · Fluxo de relatórios</title>
   <link rel="stylesheet" href="css/styles.css">
-  <style>
-    :root {
-      --fb-navy: #0f172a;
-      --fb-blue: #0284c7;
-      --fb-blue-hover: #0369a1;
-      --fb-light: #f8fafc;
-      --fb-border: #cbd5e1;
-      --fb-text: #1e293b;
-      --fb-muted: #64748b;
-      --fb-error: #ef4444;
-      --fb-success: #10b981;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: linear-gradient(135deg, #0b132b 0%, #1c2541 50%, #0f172a 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      color: var(--fb-text);
-    }
-
-    .auth-container {
-      width: 100%;
-      max-width: 440px;
-      background: #ffffff;
-      border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      overflow: hidden;
-      animation: fadeIn 0.4s ease-out;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(16px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .auth-header {
-      background: var(--fb-navy);
-      padding: 32px 24px;
-      text-align: center;
-      border-bottom: 2px solid #0284c7;
-    }
-
-    .brand-title {
-      color: #38bdf8;
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .brand-title svg {
-      width: 24px;
-      height: 24px;
-      fill: #38bdf8;
-    }
-
-    .brand-subtitle {
-      color: #94a3b8;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .corporate-badge {
-      display: inline-block;
-      margin-top: 14px;
-      background: rgba(2, 132, 199, 0.2);
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      color: #7dd3fc;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
-
-    .auth-body {
-      padding: 32px 28px;
-    }
-
-    .form-step {
-      display: none;
-    }
-
-    .form-step.active {
-      display: block;
-    }
-
-    h2 {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--fb-text);
-      margin-bottom: 8px;
-    }
-
-    p.step-desc {
-      font-size: 13px;
-      color: var(--fb-muted);
-      line-height: 1.5;
-      margin-bottom: 24px;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--fb-muted);
-      margin-bottom: 8px;
-    }
-
-    .input-wrapper {
-      position: relative;
-    }
-
-    input[type="email"] {
-      width: 100%;
-      height: 48px;
-      padding: 0 16px;
-      border: 1.5px solid var(--fb-border);
-      border-radius: 8px;
-      font-size: 15px;
-      color: var(--fb-text);
-      transition: all 0.2s ease;
-      background: #f8fafc;
-    }
-
-    input[type="email"]:focus {
-      outline: none;
-      border-color: var(--fb-blue);
-      background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
-    }
-
-    .otp-inputs {
-      display: flex;
-      gap: 8px;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-
-    .otp-digit {
-      width: 48px;
-      height: 56px;
-      text-align: center;
-      font-size: 24px;
-      font-weight: 700;
-      font-family: monospace;
-      border: 2px solid var(--fb-border);
-      border-radius: 8px;
-      background: #f8fafc;
-      color: var(--fb-navy);
-      transition: all 0.2s ease;
-    }
-
-    .otp-digit:focus {
-      outline: none;
-      border-color: var(--fb-blue);
-      background: #ffffff;
-      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
-    }
-
-    .btn-submit {
-      width: 100%;
-      height: 48px;
-      background: var(--fb-blue);
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: background 0.2s ease, transform 0.1s ease;
-    }
-
-    .btn-submit:hover:not(:disabled) {
-      background: var(--fb-blue-hover);
-    }
-
-    .btn-submit:active:not(:disabled) {
-      transform: scale(0.99);
-    }
-
-    .btn-submit:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .alert {
-      padding: 12px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      line-height: 1.4;
-      margin-bottom: 20px;
-      display: none;
-    }
-
-    .alert.error {
-      display: block;
-      background: #fef2f2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-    }
-
-    .alert.success {
-      display: block;
-      background: #f0fdf4;
-      color: #166534;
-      border: 1px solid #bbf7d0;
-    }
-
-    .magic-info {
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      border-radius: 8px;
-      padding: 14px;
-      margin-top: 20px;
-      font-size: 12px;
-      color: #0369a1;
-      line-height: 1.5;
-    }
-
-    .magic-info b {
-      color: #0c4a6e;
-    }
-
-    .footer-actions {
-      margin-top: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 12px;
-    }
-
-    .link-btn {
-      background: none;
-      border: none;
-      color: var(--fb-blue);
-      font-weight: 600;
-      cursor: pointer;
-      padding: 4px;
-      font-size: 12px;
-    }
-
-    .link-btn:hover {
-      text-decoration: underline;
-    }
-
-    .countdown {
-      color: var(--fb-muted);
-    }
-
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: #ffffff;
-      animation: spin 0.8s linear infinite;
-      display: inline-block;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .loading-view {
-      text-align: center;
-      padding: 40px 20px;
-    }
-
-    .loading-view .spinner-large {
-      width: 40px;
-      height: 40px;
-      border: 3px solid #e2e8f0;
-      border-top-color: var(--fb-blue);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin: 0 auto 16px;
-    }
-  </style>
+  <link rel="stylesheet" href="css/login.css">
 </head>
-<body>
-
-  <div class="auth-container">
-    <div class="auth-header">
-      <div class="brand-title">
-        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-        Falcão Bauer
-      </div>
-      <div class="brand-subtitle">Fluxo de Relatórios de Concreto Projetado</div>
-      <div class="corporate-badge">Acesso Exclusivo @falcaobauer.com.br</div>
+<body class="auth-page">
+  <header class="auth-top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">RT</div>
+      <div><p class="auth-brand-name">Fluxo de relatórios</p><p class="auth-brand-detail">Concreto projetado</p></div>
     </div>
+    <div class="auth-company"><strong>Falcão Bauer</strong>Controle tecnológico</div>
+  </header>
 
-    <div class="auth-body">
-      <!-- Alerta Geral -->
-      <div id="authAlert" class="alert"></div>
+  <main class="auth-main">
+    <section class="auth-intro" aria-labelledby="introTitle">
+      <span class="auth-eyebrow">Controle tecnológico de concreto</span>
+      <h1 id="introTitle">Do ensaio ao relatório,<br>um fluxo completo.</h1>
+      <p>Acompanhe os resultados de cada placa, da entrada dos dados à entrega do relatório ao cliente.</p>
+      <ol class="auth-workflow" aria-label="Etapas do trabalho">
+        <li class="board-group-insertion"><span class="workflow-number" aria-hidden="true">01</span><div><strong>Inserção</strong><p>Entrada de dados, análise e ajuste dos ensaios.</p></div></li>
+        <li class="board-group-automation"><span class="workflow-number" aria-hidden="true">02</span><div><strong>Automação</strong><p>Classificação e parecer técnico com IA.</p></div></li>
+        <li class="board-group-followup"><span class="workflow-number" aria-hidden="true">03</span><div><strong>Acompanhamento</strong><p>Notificações, idades e relatório final.</p></div></li>
+      </ol>
+    </section>
 
-      <!-- Carregando Magic Link -->
-      <div id="loadingView" class="loading-view" style="display: none;">
-        <div class="spinner-large"></div>
-        <h2>Validando seu acesso...</h2>
-        <p class="step-desc">Aguarde um momento enquanto confirmamos seu Magic Link.</p>
+    <section class="auth-container" aria-label="Acesso da equipe">
+      <div class="auth-card-top">
+        <span class="auth-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+        <span class="auth-step-label"><span class="auth-step-dot" aria-hidden="true"></span><span id="authStepLabel">Acesso da equipe</span></span>
       </div>
+      <div class="auth-body">
+        <div id="authAlert" class="alert" role="status" aria-live="polite" aria-atomic="true"></div>
+        <div id="loadingView" class="loading-view" style="display:none" role="status">
+          <div class="spinner-large" aria-hidden="true"></div>
+          <h2>Confirmando seu acesso</h2>
+          <p class="step-desc">Aguarde um momento. Estamos validando o link recebido por e-mail.</p>
+        </div>
 
-      <!-- Passo 1: Digitar E-mail -->
-      <div id="stepEmail" class="form-step active">
-        <h2>Entrar no Sistema</h2>
-        <p class="step-desc">Digite seu e-mail institucional para receber um código de 6 dígitos e um link mágico via Resend.</p>
-
-        <form id="formSendEmail">
-          <div class="form-group">
-            <label for="inputEmail">E-mail Corporativo</label>
-            <input type="email" id="inputEmail" placeholder="seu.nome@falcaobauer.com.br" required autofocus autocomplete="email">
-          </div>
-
-          <button type="submit" id="btnSendCode" class="btn-submit">
-            <span id="btnSendText">Enviar Código &amp; Magic Link</span>
-            <div id="btnSendSpinner" class="spinner" style="display: none;"></div>
-          </button>
-        </form>
-      </div>
-
-      <!-- Passo 2: Digitar OTP -->
-      <div id="stepOtp" class="form-step">
-        <h2>Verificação em 2 Etapas</h2>
-        <p class="step-desc">Enviamos um código de 6 dígitos para <strong id="sentEmailDisplay"></strong>.</p>
-
-        <form id="formVerifyOtp">
-          <div class="form-group">
-            <label>Código de 6 dígitos (OTP)</label>
-            <div class="otp-inputs" id="otpGroup">
-              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" autofocus>
-              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
-              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
-              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
-              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
-              <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]">
+        <div id="stepEmail" class="form-step active">
+          <h2>Acesse seu espaço<br>de trabalho.</h2>
+          <p class="step-desc">Receba um link no seu e-mail corporativo e continue de onde parou.</p>
+          <form id="formSendEmail">
+            <div class="form-group">
+              <label for="inputEmail">E-mail corporativo</label>
+              <input type="email" id="inputEmail" placeholder="seu.nome@falcaobauer.com.br" required autofocus autocomplete="email" autocapitalize="none" spellcheck="false" aria-describedby="emailHint">
+              <span class="input-hint" id="emailHint">Utilize seu endereço @falcaobauer.com.br.</span>
             </div>
-          </div>
-
-          <button type="submit" id="btnVerifyCode" class="btn-submit">
-            <span id="btnVerifyText">Validar e Entrar</span>
-            <div id="btnVerifySpinner" class="spinner" style="display: none;"></div>
-          </button>
-        </form>
-
-        <div class="magic-info">
-          💡 <b>Dica Magic Link:</b> Você também pode entrar com 1 clique direto no botão enviado para a sua caixa de entrada no e-mail.
+            <button type="submit" id="btnSendCode" class="btn-submit"><span id="btnSendText">Receber link de acesso</span><span id="btnSendSpinner" class="spinner" style="display:none" aria-hidden="true"></span></button>
+          </form>
+          <p class="auth-no-password"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v2"/></svg>Sem senha. Confirme o acesso pelo seu e-mail.</p>
         </div>
 
-        <div class="footer-actions">
-          <button type="button" class="link-btn" id="btnBackToEmail">← Alterar e-mail</button>
-          <div>
-            <span id="resendCountdown" class="countdown"></span>
-            <button type="button" class="link-btn" id="btnResend" style="display: none;">Reenviar código</button>
+        <div id="stepOtp" class="form-step">
+          <h2>Confira seu e-mail.</h2>
+          <p class="step-desc">Enviamos um link de acesso e um código para <strong id="sentEmailDisplay"></strong>.</p>
+          <form id="formVerifyOtp">
+            <div class="form-group">
+              <span class="otp-label" id="otpLabel">Ou digite o código de 6 dígitos</span>
+              <div class="otp-inputs" id="otpGroup" role="group" aria-labelledby="otpLabel">
+                <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" aria-label="Primeiro dígito">
+                <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" aria-label="Segundo dígito">
+                <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" aria-label="Terceiro dígito">
+                <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" aria-label="Quarto dígito">
+                <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" aria-label="Quinto dígito">
+                <input type="text" maxlength="1" class="otp-digit" inputmode="numeric" pattern="[0-9]" aria-label="Sexto dígito">
+              </div>
+            </div>
+            <button type="submit" id="btnVerifyCode" class="btn-submit"><span id="btnVerifyText">Confirmar e entrar</span><span id="btnVerifySpinner" class="spinner" style="display:none" aria-hidden="true"></span></button>
+          </form>
+          <div class="magic-info"><b>Prefere entrar pelo link?</b>Abra a mensagem na sua caixa de entrada e clique em “Acessar o sistema”. Se não encontrar, confira o spam.</div>
+          <div class="footer-actions">
+            <button type="button" class="link-btn" id="btnBackToEmail">← Alterar e-mail</button>
+            <div><span id="resendCountdown" class="countdown"></span><button type="button" class="link-btn" id="btnResend" style="display:none">Reenviar e-mail</button></div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
+      <footer class="auth-card-footer"><strong>Um link ou um código. Você escolhe.</strong><br>Ambos são válidos por 15 minutos e podem ser usados uma única vez.</footer>
+    </section>
+  </main>
+  <footer class="auth-footer">Falcão Bauer · Fluxo de relatórios de concreto projetado</footer>
   <script>
     const alertBox = document.getElementById('authAlert');
     const stepEmail = document.getElementById('stepEmail');
@@ -400,6 +98,7 @@
     let countdownSeconds = 30;
 
     function showAlert(msg, isError = true) {
+      alertBox.style.display = '';
       alertBox.textContent = msg;
       alertBox.className = 'alert ' + (isError ? 'error' : 'success');
     }
@@ -415,7 +114,7 @@
     const errorParam = urlParams.get('error');
 
     if (errorParam === 'expired') {
-      showAlert('O link mágico expirou ou já foi utilizado. Solicite um novo código.');
+      showAlert('Este link expirou ou já foi utilizado. Solicite um novo link de acesso.');
     } else if (errorParam === 'invalid') {
       showAlert('Link de autenticação inválido.');
     }
@@ -464,6 +163,7 @@
       const spinner = document.getElementById('btnSendSpinner');
 
       btn.disabled = true;
+      btn.setAttribute('aria-busy','true');
       btnText.textContent = 'Enviando...';
       spinner.style.display = 'inline-block';
 
@@ -483,7 +183,7 @@
         sentEmailDisplay.textContent = email;
         stepEmail.classList.remove('active');
         stepOtp.classList.add('active');
-        showAlert('Código e Magic Link enviados para ' + email + '!', false);
+        showAlert('Link e código enviados para ' + email + '!', false);
 
         otpDigits[0].focus();
         startResendCountdown();
@@ -491,7 +191,8 @@
         showAlert(err.message);
       } finally {
         btn.disabled = false;
-        btnText.textContent = 'Enviar Código & Magic Link';
+        btn.removeAttribute('aria-busy');
+        btnText.textContent = 'Receber link de acesso';
         spinner.style.display = 'none';
       }
     });
@@ -541,6 +242,7 @@
       const spinner = document.getElementById('btnVerifySpinner');
 
       btn.disabled = true;
+      btn.setAttribute('aria-busy','true');
       btnText.textContent = 'Verificando...';
       spinner.style.display = 'inline-block';
 
@@ -563,7 +265,8 @@
       } catch (err) {
         showAlert(err.message);
         btn.disabled = false;
-        btnText.textContent = 'Validar e Entrar';
+        btn.removeAttribute('aria-busy');
+        btnText.textContent = 'Confirmar e entrar';
         spinner.style.display = 'none';
       }
     });
@@ -574,6 +277,8 @@
       stepOtp.classList.remove('active');
       stepEmail.classList.add('active');
       otpDigits.forEach(i => i.value = '');
+      clearInterval(resendTimer);
+      inputEmail.focus();
     });
 
     // Contador para Reenvio
@@ -601,6 +306,10 @@
     // Botão Reenviar Código
     document.getElementById('btnResend').addEventListener('click', async () => {
       clearAlert();
+      const button = document.getElementById('btnResend');
+      if(button.disabled) return;
+      button.disabled = true;
+      button.setAttribute('aria-busy','true');
       try {
         const res = await fetch('/api/auth/send-code', {
           method: 'POST',
@@ -615,6 +324,9 @@
         startResendCountdown();
       } catch (err) {
         showAlert(err.message);
+      } finally {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
       }
     });
   </script>
